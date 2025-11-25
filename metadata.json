@@ -1,0 +1,153 @@
+{
+  "dataflows": [
+    {
+      "name": "df1_person_flow",
+      "bronze_sinks": [
+        { 
+            "input": "person_inputs", 
+            "name": "bronze_person",
+            "location": "/Volumes/empresa/esquema_ingesta/volumen_storage_tables/bronze_person" 
+        }
+      ],
+      "sources": [
+        {
+          "name": "person_inputs", 
+          "paths": [
+            "/Volumes/empresa/esquema_ingesta/volumen_data_person/*",
+            "/Volumes/empresa/esquema_ingesta/volumen_data_person_s3/*"
+          ], 
+          "format": "JSON",
+          "schema_location": "/Volumes/empresa/esquema_ingesta/volumen_schema_checkpoint/bronze_person_json",
+          "options": {
+              "cloudFiles.schemaEvolutionMode": "rescue"
+          }
+        },
+        {
+          "name": "person_inputs", 
+          "path": "/Volumes/empresa/esquema_ingesta/volumen_data_person_csv/*",
+          "format": "CSV",
+          "schema_location": "/Volumes/empresa/esquema_ingesta/volumen_schema_checkpoint/bronze_person_csv",
+          "options": {
+              "header": "true",
+              "delimiter": ";",
+              "cloudFiles.schemaEvolutionMode": "addNewColumns"
+          }
+        }
+      ],
+      "silver_logic": {
+            "target_silver_table": "silver_person_clean",
+            "target_location": "/Volumes/empresa/esquema_ingesta/volumen_storage_tables/silver_person_ok",
+            "source_bronze": "bronze_person",
+            
+            "validations": [
+                {"field": "office", "validations": ["notEmpty"]},
+                {"field": "age", "validations": ["notNull"]}
+            ],
+            
+            "quarantine_location": "/Volumes/empresa/esquema_ingesta/volumen_storage_tables/silver_person_quarantine",
+            
+            "transformations": [
+                {"target_col": "ingestion_ts", "type": "current_timestamp", "params": null},
+                {"target_col": "age_group", "type": "sql_expr", "params": "CASE WHEN age > 18 THEN 'Adult' ELSE 'Minor' END"}
+            ],
+            
+            "scd_config": {
+                "keys": ["id"],
+                "sequence_by": "ts",
+                "stored_as_scd_type": 1
+            }
+      }
+    },
+    {
+      "name": "df2_employees_flow",
+      "bronze_sinks": [
+        { 
+            "input": "employees_inputs", 
+            "name": "bronze_employees",
+            "location": "/Volumes/empresa/esquema_ingesta/volumen_storage_tables/bronze_employees" 
+        }
+      ],
+      "sources": [
+        {
+          "name": "employees_inputs", 
+          "path": "/Volumes/empresa/esquema_ingesta/volumen_data_employees/*", 
+          "format": "JSON",
+          "schema_location": "/Volumes/empresa/esquema_ingesta/volumen_schema_checkpoint/bronze_employees_json",
+          "options": {
+              "cloudFiles.inferColumnTypes": "true",
+              "cloudFiles.schemaEvolutionMode": "failOnNewColumns" 
+          }
+        }
+      ],
+      "silver_logic": {
+            "target_silver_table": "silver_employees_clean",
+            "target_location": "/Volumes/empresa/esquema_ingesta/volumen_storage_tables/silver_employees_ok",
+            "source_bronze": "bronze_employees",
+            
+            "validations": [
+                {"field": "emp_id", "validations": ["notNull"]},
+                {"field": "email", "validations": ["notEmpty"]}
+            ],
+            
+            "quarantine_location": "/Volumes/empresa/esquema_ingesta/volumen_storage_tables/silver_employees_quarantine",
+            
+            "transformations": [
+                {"target_col": "ingestion_ts", "type": "current_timestamp", "params": null},
+                {"target_col": "email_hash", "type": "hash_md5", "params": "email"},
+                {"target_col": "full_name_upper", "type": "sql_expr", "params": "upper(full_name)"}
+            ],
+            
+            "scd_config": {
+                "keys": ["emp_id"],
+                "sequence_by": "updated_at",
+                "stored_as_scd_type": 2
+            }
+      }
+    },
+    {
+      "name": "df3_polizas_flow",
+      "bronze_sinks": [
+        { 
+            "input": "polizas_inputs", 
+            "name": "bronze_polizas",
+            "location": "/Volumes/empresa/esquema_ingesta/volumen_storage_tables/bronze_polizas" 
+        }
+      ],
+      "sources": [
+        {
+          "name": "polizas_inputs", 
+          "path": "/Volumes/empresa/esquema_ingesta/volumen_data_polizas/*", 
+          "format": "JSON",
+          "schema_location": "/Volumes/empresa/esquema_ingesta/volumen_schema_checkpoint/bronze_polizas_json",
+          "options": {
+              "cloudFiles.inferColumnTypes": "true",
+              "cloudFiles.schemaEvolutionMode": "rescue"
+          }
+        }
+      ],
+      "silver_logic": {
+            "target_silver_table": "silver_polizas_clean",
+            "target_location": "/Volumes/empresa/esquema_ingesta/volumen_storage_tables/silver_polizas_ok",
+            "source_bronze": "bronze_polizas",
+            
+            "validations": [
+                {"field": "policy_number", "validations": ["notEmpty"]},
+                {"field": "premium_amount", "validations": ["positive"]}
+            ],
+            
+            "quarantine_location": "/Volumes/empresa/esquema_ingesta/volumen_storage_tables/silver_polizas_quarantine",
+            
+            "transformations": [
+                {"target_col": "processed_date", "type": "current_timestamp", "params": null},
+                {"target_col": "premium_with_tax", "type": "sql_expr", "params": "premium_amount * 1.21"}
+            ],
+            
+            "scd_config": {
+                "keys": ["policy_number"],
+                "sequence_by": "issue_date",
+                "stored_as_scd_type": 1
+            }
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+# Ficheros de Python
+__pycache__/
+*.pyc
+
+# Ficheros de VSCode
+.vscode/
+
+# Datos generados por Spark
+spark-warehouse/
+data/bronze/
+data/output/
+
+# Ficheros de entorno (si los tuvieras)
+.env
+.src/__pycache__
+.metadatos_databrick
