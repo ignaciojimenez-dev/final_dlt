@@ -1,0 +1,20 @@
+[
+  {
+    "policy_number": "POL-1001",
+    "issue_date": "2025-01-10T12:00:00Z",
+    "holder_name": "Cliente A",
+    "premium_amount": 1000.50
+  },
+  {
+    "policy_number": "POL-1002",
+    "issue_date": "2025-01-11T14:30:00Z",
+    "holder_name": "Cliente B",
+    "premium_amount": 500.00
+  },
+  {
+    "policy_number": "POL-1003_NEGATIVE",
+    "issue_date": "2025-01-12T09:00:00Z",
+    "holder_name": "Cliente Error",
+    "premium_amount": -50.00
+  }
+]

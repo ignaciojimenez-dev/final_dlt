@@ -1,0 +1,23 @@
+[
+  {
+    "emp_id": "E001",
+    "updated_at": "2025-01-01T08:00:00Z",
+    "full_name": "Ignacio Jimenez",
+    "email": "ignacio.j@sdggroup.com",
+    "department": "Engineering"
+  },
+  {
+    "emp_id": "E002",
+    "updated_at": "2025-01-01T08:00:00Z",
+    "full_name": "Sofia Data",
+    "email": "sofia.d@sdggroup.com",
+    "department": "Data Science"
+  },
+  {
+    "emp_id": "E003_NO_EMAIL",
+    "updated_at": "2025-01-01T08:00:00Z",
+    "full_name": "Error User",
+    "email": "",
+    "department": "HR"
+  }
+]

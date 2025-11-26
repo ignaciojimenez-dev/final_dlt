@@ -1,0 +1,30 @@
+[
+  {
+    "id": "P001",
+    "ts": "2025-01-01T10:00:00Z",
+    "name": "Juan Perez",
+    "office": "Madrid",
+    "age": 30
+  },
+  {
+    "id": "P002",
+    "ts": "2025-01-01T10:05:00Z",
+    "name": "Maria Lopez",
+    "office": "Barcelona",
+    "age": 25
+  },
+  {
+    "id": "P003_INVALID_AGE",
+    "ts": "2025-01-01T10:10:00Z",
+    "name": "Carlos Error",
+    "office": "Valencia",
+    "age": null
+  },
+  {
+    "id": "P004_INVALID_OFFICE",
+    "ts": "2025-01-01T10:15:00Z",
+    "name": "Laura Empty",
+    "office": "",
+    "age": 40
+  }
+]

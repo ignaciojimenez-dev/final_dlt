@@ -1,0 +1,4 @@
+id;ts;name;office;age
+P100;2024-12-31T23:59:00Z;Roberto Legacy;Madrid;50
+P101;2024-12-31T23:58:00Z;Elena Antigua;Barcelona;45
+P102_BAD;2024-12-31T23:57:00Z;Fallo Csv;;20

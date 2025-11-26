@@ -6,9 +6,32 @@ import json
 from src.rules_engine import build_validation_rules
 from src.transformations_factory import build_transformation_map
 
+# ==============================================================================
+# 0. CARGA DE CONFIGURACIÓN (Integración con Task 1)
+# ==============================================================================
+# En DLT, pasamos la ruta del JSON como un parámetro de configuración del Pipeline
+# Key: "metadata_file_path"
+# Value: "/Volumes/empresa/esquema_ingesta/configs/metadata.json"
 
-dataflow_json_string = sys.argv[1]     
-config_data = json.loads(dataflow_json_string)
+try:
+    # Opción A: Leer de configuración Spark (Recomendado para DLT puro)
+    config_path = spark.conf.get("metadata_file_path", None) # type: ignore
+    
+    # Opción B: Fallback a sys.argv si se invoca distinto
+    if not config_path and len(sys.argv) > 1:
+        config_path = sys.argv[1]
+        
+    if not config_path:
+        raise ValueError("No se especificó la ruta de metadatos (metadata_file_path)")
+
+    print(f"Iniciando Pipeline DLT con configuración: {config_path}")
+    
+    with open(config_path, 'r') as f:
+        config_data = json.load(f)
+
+except Exception as e:
+    # Si falla la carga, el DLT no debe arrancar nada
+    raise RuntimeError(f"FATAL: No se pudo leer el JSON de metadatos: {e}")
 
 # ==============================================================================
 # 1. GENERADOR BRONZE

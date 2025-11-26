@@ -1,0 +1,18 @@
+[
+  {
+    "id": "P005",
+    "ts": "2025-01-02T09:00:00Z",
+    "name": "Pedro Nuevo",
+    "office": "Sevilla",
+    "age": 28,
+    "email": "pedro.nuevo@email.com"
+  },
+  {
+    "id": "P006",
+    "ts": "2025-01-02T09:15:00Z",
+    "name": "Ana Digital",
+    "office": "Bilbao",
+    "age": 35,
+    "email": "ana.digital@email.com"
+  }
+]
