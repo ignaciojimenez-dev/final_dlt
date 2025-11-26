@@ -1,37 +1,48 @@
 import pyspark.pipelines as dp # type: ignore
 from pyspark.sql.functions import *
 import json
-
-
+# codigo propio
 from src.rules_engine import build_validation_rules
 from src.transformations_factory import build_transformation_map
 
 # ==============================================================================
 # 0. CARGA DE CONFIGURACIÓN (Integración con Task 1)
 # ==============================================================================
-# En DLT, pasamos la ruta del JSON como un parámetro de configuración del Pipeline
-# Key: "metadata_file_path"
-# Value: "/Volumes/empresa/esquema_ingesta/configs/metadata.json"
-
 try:
-    # Opción A: Leer de configuración Spark (Recomendado para DLT puro)
+    # 1. Ruta del JSON (Igual que antes)
     config_path = spark.conf.get("metadata_file_path", None) # type: ignore
-    
-    # Opción B: Fallback a sys.argv si se invoca distinto
     if not config_path and len(sys.argv) > 1:
         config_path = sys.argv[1]
-        
-    if not config_path:
-        raise ValueError("No se especificó la ruta de metadatos (metadata_file_path)")
+    
+    # 2. NUEVO: Parámetro de filtrado (Para ejecución concurrente)
+    # Si viene vacío, asumimos "ALL" (ejecutar todo)
+    target_flow_name = spark.conf.get("target_dataflow_name", "ALL") # type: ignore
 
-    print(f"Iniciando Pipeline DLT con configuración: {config_path}")
+    if not config_path:
+        raise ValueError("Falta metadata_file_path")
+
+    print(f"📄 Configuración: {config_path}")
+    print(f"🎯 Target Dataflow: {target_flow_name}")
     
     with open(config_path, 'r') as f:
-        config_data = json.load(f)
+        full_config = json.load(f)
+
+    # Lógica de Filtrado
+    all_flows = full_config.get("dataflows", [])
+    
+    if target_flow_name == "ALL":
+        flows_to_process = all_flows
+    else:
+        # Filtramos solo el flujo que coincida con el nombre recibido
+        flows_to_process = [f for f in all_flows if f["name"] == target_flow_name]
+        
+        if not flows_to_process:
+            print(f"⚠️ WARNING: No se encontró el dataflow '{target_flow_name}' en el JSON.")
+    
+    print(f"🚀 Se procesarán {len(flows_to_process)} flujos en esta ejecución.")
 
 except Exception as e:
-    # Si falla la carga, el DLT no debe arrancar nada
-    raise RuntimeError(f"FATAL: No se pudo leer el JSON de metadatos: {e}")
+    raise RuntimeError(f"FATAL Setup: {e}")
 
 # ==============================================================================
 # 1. GENERADOR BRONZE
@@ -177,9 +188,11 @@ def create_silver_logic_pipeline(config):
 # 3. ORQUESTADOR QUE ITERA POR SOURCES Y PATHS
 # ==============================================================================
 
-for flow in config_data.get("dataflows", []):
+for flow in flows_to_process:
     
-    #  BRONZE 
+    print(f"🔨 Construyendo grafo para: {flow['name']}")
+
+    # --- A. Capa Bronze ---
     input_to_sink_config = { sink["input"]: sink for sink in flow["bronze_sinks"] }
     created_bronze_tables = set()
     
@@ -197,6 +210,6 @@ for flow in config_data.get("dataflows", []):
             
             create_bronze_append_flow(target_table_name, source, i)
 
-    #  SILVER 
+    # --- B. Capa Silver ---
     if "silver_logic" in flow:
         create_silver_logic_pipeline(flow["silver_logic"])

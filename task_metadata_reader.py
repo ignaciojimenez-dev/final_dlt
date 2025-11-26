@@ -85,7 +85,6 @@ def main():
         log.error("Este script requiere entorno Databricks.")
         return
 
-    # SE LEE EL PARAMETER GLOBAL 
     try:
         config_path_arg = sys.argv[1]
     except IndexError:
@@ -95,18 +94,26 @@ def main():
     # 1. Cargar
     config = load_config(config_path_arg)
     
-    # 2. Validar 
+    # 2. Validar
     is_valid = validate_metadata_schema(config)
 
     if is_valid:
         log.info("Pipeline de validación superado.")
         
-        # Pasamos la RUTA validada. La tarea 2 leerá de esa ruta confiable.
+        # A. Pasamos la ruta validada (como antes)
         dbutils.jobs.taskValues.set(key="validated_config_path", value=config_path_arg)
         
-        log.info(f"Ruta validada '{config_path_arg}' disponible para la siguiente tarea.")
+        # B. NUEVO: Extraemos los NOMBRES de los dataflows para el bucle Foreach
+        # Esto generará una lista: ["df1_person_flow", "df2_employees_flow", "df3_polizas_flow"]
+        flow_names = [flow["name"] for flow in config["dataflows"]]
+        
+        # Databricks Foreach task necesita un JSON array como string o lista
+        dbutils.jobs.taskValues.set(key="dataflow_names_list", value=flow_names)
+        
+        log.info(f"Nombres de dataflows extraídos para orquestación: {flow_names}")
+        
     else:
-        log.error("La validación de metadatos falló. Deteniendo el Job.")
+        log.error("La validación de metadatos falló.")
         sys.exit(1)
 
 if __name__ == "__main__":
