@@ -79,12 +79,7 @@ def create_bronze_append_flow(target_table, source_config, index_id):
         # 3. Carga del path, soporta string único o lista
         path_input = source_config.get("path") or source_config.get("paths")
         
-        if isinstance(path_input, list):
-            # Si es una lista ["a", "b"], el * la convierte en argumentos: load("a", "b")
-            return reader.load(*path_input)
-        else:
-            # Si es un string normal, lo pasa tal cual
-            return reader.load(path_input)
+        return reader.load(path_input)
 
 # ==============================================================================
 # 2. GENERADOR SILVER (Router -> Quarantine -> Prep -> SCD)
