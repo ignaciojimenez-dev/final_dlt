@@ -67,7 +67,7 @@ def create_bronze_append_flow(target_table, source_config, index_id):
             spark.readStream.format("cloud_files") # type: ignore
             .option("cloud_files.format", source_config["format"])
             .option("cloud_files.schemaLocation", source_config["schema_location"])
-            .option("cloudFiles.inferColumnTypes", "true")
+            #.option("cloudFiles.inferColumnTypes", "true")
         )
         
         # 2. Inyeccion dinamica de opciones
