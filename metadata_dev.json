@@ -26,7 +26,8 @@
           "schema_location": "/Volumes/dev_dlt/esquema_ingesta/volumen_schema_checkpoint/bronze_person_csv",
           "options": {
               "header": "true",
-              "delimiter": ";"
+              "delimiter": ";",
+              "cloudFiles.schemaHints": "age LONG"
           }
         }
       ],
