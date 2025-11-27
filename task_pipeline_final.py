@@ -35,37 +35,38 @@ except Exception as e:
 
 def create_bronze_factory(target_table_name, source_config):
     """
-    Crea una DLT Table dinámica fusionando definición y lógica.
-    Esto imita el comportamiento de @dp.table hardcodeado pero con variables.
+    Crea tabla Bronze con Autoloader.
+    FORZADO: 'multiLine' activado por código (no requiere cambio en metadata.json).
     """
     
-    # 1. Extraemos configuración
-    # Simplificación: Asumimos un solo path (o tomamos el primero si es lista)
+    # 1. Gestión de Paths
     raw_path = source_config.get("path") or source_config.get("paths")
     input_path = raw_path[0] if isinstance(raw_path, list) else raw_path
     
-    file_format = source_config.get("format", "JSON") # Ej: JSON, CSV
-    
-    # 2. Definimos la tabla y la lógica juntas (Atomicidad para Autoloader)
+    file_format = source_config.get("format", "JSON")
+    schema_loc = source_config.get("schema_location")
+
     @dp.table(
         name=target_table_name,
         comment=f"Ingesta Bronze Autoloader para {target_table_name}",
-        table_properties={
-            "quality": "bronze",
-            "delta.enableChangeDataFeed": "true"
-        }
+        table_properties={"quality": "bronze", "delta.enableChangeDataFeed": "true"}
     )
     def bronze_ingestion_logic():
-        # Configuración del Reader (igual que tu código manual)
         reader = (
             spark.readStream
-            .format("cloudFiles")  # CORRECCIÓN: Es cloudFiles, no cloud_files
+            .format("cloudFiles")
             .option("cloudFiles.format", file_format)
-            .option("cloudFiles.inferColumnTypes", "true") # Vital para no depender de schema estático
-            # .option("cloudFiles.schemaLocation", ...) # Opcional si usas checkpointing propio
+            .option("cloudFiles.inferColumnTypes", "true")
+            # --- AQUÍ ESTÁ EL CAMBIO SOLICITADO ---
+            .option("multiLine", "true") 
+            # --------------------------------------
         )
         
-        # Inyección de opciones adicionales del JSON (delimiter, header, etc.)
+        # Si existe schema_location en el JSON, lo usamos (recomendado)
+        if schema_loc:
+            reader = reader.option("cloudFiles.schemaLocation", schema_loc)
+
+        # Inyectamos el resto de opciones del JSON (si las hubiera)
         if "options" in source_config:
             for key, value in source_config["options"].items():
                 reader = reader.option(key, value)
