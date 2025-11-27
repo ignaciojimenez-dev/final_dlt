@@ -32,62 +32,45 @@ except Exception as e:
 # ==============================================================================
 # 1. GENERADOR BRONZE
 # ==============================================================================
-def create_bronze_container(table_name, location_path=None):
-    table_args = {
-        "name": table_name,
-        "comment": f"Raw Container: {table_name}",
-        "table_properties": {"quality": "bronze", "delta.enableChangeDataFeed": "true"}
-    }
-    # En Serverless/UC, es mejor dejar que Databricks gestione el path si da problemas
-    # if location_path: table_args["path"] = location_path
-    
-    dp.create_streaming_table(**table_args)
 
-def create_bronze_append_flow(target_table, source_config, index_id):
+def create_bronze_factory(target_table_name, source_config):
     """
-    Crea flujo de ingesta. 
-    ESTRATEGIA 'BRONZE PURO': Leemos todo como texto/string para evitar errores de esquema en Serverless.
+    Crea una DLT Table dinámica fusionando definición y lógica.
+    Esto imita el comportamiento de @dp.table hardcodeado pero con variables.
     """
-    flow_name = f"ingest_{source_config['name']}_{index_id}"
     
-    @dp.append_flow(target=target_table, name=flow_name)
-    def ingest_files():
-        fmt = source_config["format"].lower()
+    # 1. Extraemos configuración
+    # Simplificación: Asumimos un solo path (o tomamos el primero si es lista)
+    raw_path = source_config.get("path") or source_config.get("paths")
+    input_path = raw_path[0] if isinstance(raw_path, list) else raw_path
+    
+    file_format = source_config.get("format", "JSON") # Ej: JSON, CSV
+    
+    # 2. Definimos la tabla y la lógica juntas (Atomicidad para Autoloader)
+    @dp.table(
+        name=target_table_name,
+        comment=f"Ingesta Bronze Autoloader para {target_table_name}",
+        table_properties={
+            "quality": "bronze",
+            "delta.enableChangeDataFeed": "true"
+        }
+    )
+    def bronze_ingestion_logic():
+        # Configuración del Reader (igual que tu código manual)
+        reader = (
+            spark.readStream
+            .format("cloudFiles")  # CORRECCIÓN: Es cloudFiles, no cloud_files
+            .option("cloudFiles.format", file_format)
+            .option("cloudFiles.inferColumnTypes", "true") # Vital para no depender de schema estático
+            # .option("cloudFiles.schemaLocation", ...) # Opcional si usas checkpointing propio
+        )
         
-        # --- LECTURA NATIVA (NO CLOUD_FILES) ---
-        # Usamos lector nativo para máxima compatibilidad
-        if fmt == "json":
-            # Para JSON en Bronze, leemos sin esquema estricto (inferencia básica)
-            # o forzamos lectura como texto si falla mucho. 
-            # Aquí usamos json nativo con inferSchema (más lento pero compatible).
-            reader = spark.readStream.format("json").option("inferSchema", "true")
-            
-        elif fmt == "csv":
-            reader = spark.readStream.format("csv").option("header", "true").option("inferSchema", "true")
-            
-        elif fmt == "parquet":
-            reader = spark.readStream.format("parquet")
-            
-        else:
-            # Fallback a cloud_files solo si es formato raro, asumiendo riesgo
-            reader = spark.readStream.format("cloud_files").option("cloud_files.format", fmt)
-
-        # Aplicamos opciones del JSON (Filtrando las de cloudFiles para que no rompan el lector nativo)
+        # Inyección de opciones adicionales del JSON (delimiter, header, etc.)
         if "options" in source_config:
             for key, value in source_config["options"].items():
-                if not key.startswith("cloudFiles"):
-                    reader = reader.option(key, value)
+                reader = reader.option(key, value)
         
-        # --- GESTIÓN DE PATHS (SOLUCIÓN ERROR LISTA) ---
-        path_input = source_config.get("path") or source_config.get("paths")
-        
-        if isinstance(path_input, list):
-            # El asterisco * desempaqueta la lista en argumentos: load("ruta1", "ruta2")
-            # Spark readStream.load() soporta múltiples argumentos de paths
-            return reader.load(*path_input)
-        else:
-            return reader.load(path_input)
-
+        return reader.load(input_path)
 
 # ==============================================================================
 # 2. GENERADOR SILVER (Router -> Quarantine -> Prep -> SCD)
