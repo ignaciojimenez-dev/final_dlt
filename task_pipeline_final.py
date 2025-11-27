@@ -56,9 +56,8 @@ def create_bronze_container(table_name, location_path=None):
 
 def create_bronze_append_flow(target_table, source_config, index_id):
     """
-    Crea un flujo de ingesta que escribe en la tabla contenedor.
+    Crea flujo de ingesta. Soporta esquema explícito (DDL) para evitar conflictos de tipos.
     """
-    # Nombre único para este flujo específico en el grafo DLT
     flow_name = f"ingest_{target_table}_{index_id}"
     
     # Extraer configuración
@@ -66,25 +65,34 @@ def create_bronze_append_flow(target_table, source_config, index_id):
     input_path = raw_path[0] if isinstance(raw_path, list) else raw_path
     
     file_format = source_config.get("format", "JSON")
-    schema_loc = source_config.get("schema_location") # VITAL para append_flow
+    schema_loc = source_config.get("schema_location")
+    
+    # --- NUEVO: Leemos el esquema si viene en el JSON ---
+    explicit_schema = source_config.get("schema") 
 
     @dp.append_flow(target=target_table, name=flow_name)
     def ingest_files():
-        reader = (
-            spark.readStream
-            .format("cloudFiles")  # CORREGIDO: cloudFiles (camelCase)
-            .option("cloudFiles.format", file_format)
-            .option("cloudFiles.inferColumnTypes", "true")
-            .option("multiLine", "true") # Forzamos la solución que te funcionó
-        )
+        reader = spark.readStream.format("cloudFiles")
         
-        # VITAL: En append_flow, el schema_location es obligatorio para estabilidad
+        # 1. Configuración del Formato
+        reader = reader.option("cloudFiles.format", file_format)
+        
+        # 2. DECISIÓN: ¿Esquema Fijo o Inferencia?
+        if explicit_schema:
+            # MAGIA: Si hay esquema, lo imponemos. Adiós inferencia, adiós errores.
+            reader = reader.schema(explicit_schema)
+        else:
+            # Si no hay esquema, usamos inferencia (riesgo de conflictos)
+            reader = reader.option("cloudFiles.inferColumnTypes", "true")
+            # Recomendable usar schemaHints aquí si se usa inferencia
+        
+        # 3. Opciones obligatorias
+        reader = reader.option("multiLine", "true") 
+        
         if schema_loc:
-             # Si hay varios sources escribiendo a la misma tabla, 
-             # idealmente deberían compartir carpeta de esquema o tener subcarpetas
              reader = reader.option("cloudFiles.schemaLocation", schema_loc)
         
-        # Inyección de opciones extra del JSON
+        # 4. Inyección de opciones extra
         if "options" in source_config:
             for key, value in source_config["options"].items():
                 reader = reader.option(key, value)

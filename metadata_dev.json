@@ -16,6 +16,7 @@
           , 
           "format": "JSON",
           "schema_location": "/Volumes/dev_dlt/esquema_ingesta/volumen_schema_checkpoint/bronze_person_json",
+          "schema": "id STRING, ts TIMESTAMP, name STRING, office STRING, age LONG",
           "options": {
           }
         },
@@ -23,11 +24,12 @@
           "name": "person_inputs", 
           "path": "/Volumes/dev_dlt/esquema_ingesta/volumen_data_person_csv/*",
           "format": "CSV",
+          "schema": "id STRING, ts TIMESTAMP, name STRING, office STRING, age LONG",
           "schema_location": "/Volumes/dev_dlt/esquema_ingesta/volumen_schema_checkpoint/bronze_person_csv",
           "options": {
               "header": "true",
               "delimiter": ";",
-              "cloudFiles.schemaHints": "age LONG"
+              "cloudFiles.schemaHints": "age LONG, ts TIMESTAMP, id STRING, premium_amount DOUBLE"
           }
         }
       ],
