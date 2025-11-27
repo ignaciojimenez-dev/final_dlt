@@ -168,19 +168,17 @@ def create_silver_logic_pipeline(config):
 # DLT registra todas estas definiciones en el grafo antes de empezar a procesar datos.
 for flow in all_flows:
     # --- Bronze ---
-    input_to_sink = {s["input"]: s for s in flow["bronze_sinks"]}
-    created_tables = set()
-    
-    for i, src in enumerate(flow["sources"]):
-        if src["name"] in input_to_sink:
-            sink_cfg = input_to_sink[src["name"]]
-            t_name = sink_cfg["name"]
-            
-            if t_name not in created_tables:
-                create_bronze_container(t_name, sink_cfg.get("location"))
-                created_tables.add(t_name)
-            
-            create_bronze_append_flow(t_name, src, i)
+    # Mapeamos inputs -> sinks para saber qué tabla crear
+    # Asumimos 1 a 1 para esta simplificación
+    if flow.get("bronze_sinks") and flow.get("sources"):
+        # Tomamos el primer sink y el primer source (Simplificación solicitada)
+        sink_conf = flow["bronze_sinks"][0]
+        source_conf = flow["sources"][0]
+        
+        target_name = sink_conf["name"]
+        
+        # Llamamos a la fábrica única
+        create_bronze_factory(target_name, source_conf)
 
     # --- Silver ---
     if "silver_logic" in flow:
