@@ -33,40 +33,58 @@ except Exception as e:
 # 1. GENERADOR BRONZE
 # ==============================================================================
 
-def create_bronze_factory(target_table_name, source_config):
+def create_bronze_container(table_name, location_path=None):
     """
-    Crea tabla Bronze con Autoloader.
-    FORZADO: 'multiLine' activado por código (no requiere cambio en metadata.json).
+    Crea la tabla contenedor vacía. 
+    DLT esperará a que el primer 'append_flow' escriba para decidir el esquema.
     """
+    table_args = {
+        "name": table_name,
+        "comment": f"Repositorio central (Raw) para {table_name}",
+        "table_properties": {
+            "quality": "bronze",
+            "delta.enableChangeDataFeed": "true"
+        }
+    }
     
-    # 1. Gestión de Paths
+    # Si quisieras forzar una ubicación física específica para la tabla delta
+    # if location_path:
+    #    table_args["path"] = location_path
+
+    # Registra la tabla vacía en el grafo DLT
+    dp.create_streaming_table(**table_args)
+
+def create_bronze_append_flow(target_table, source_config, index_id):
+    """
+    Crea un flujo de ingesta que escribe en la tabla contenedor.
+    """
+    # Nombre único para este flujo específico en el grafo DLT
+    flow_name = f"ingest_{target_table}_{index_id}"
+    
+    # Extraer configuración
     raw_path = source_config.get("path") or source_config.get("paths")
     input_path = raw_path[0] if isinstance(raw_path, list) else raw_path
     
     file_format = source_config.get("format", "JSON")
-    schema_loc = source_config.get("schema_location")
+    schema_loc = source_config.get("schema_location") # VITAL para append_flow
 
-    @dp.table(
-        name=target_table_name,
-        comment=f"Ingesta Bronze Autoloader para {target_table_name}",
-        table_properties={"quality": "bronze", "delta.enableChangeDataFeed": "true"}
-    )
-    def bronze_ingestion_logic():
+    @dp.append_flow(target=target_table, name=flow_name)
+    def ingest_files():
         reader = (
             spark.readStream
-            .format("cloudFiles")
+            .format("cloudFiles")  # CORREGIDO: cloudFiles (camelCase)
             .option("cloudFiles.format", file_format)
             .option("cloudFiles.inferColumnTypes", "true")
-            # --- AQUÍ ESTÁ EL CAMBIO SOLICITADO ---
-            .option("multiLine", "true") 
-            # --------------------------------------
+            .option("multiLine", "true") # Forzamos la solución que te funcionó
         )
         
-        # Si existe schema_location en el JSON, lo usamos (recomendado)
+        # VITAL: En append_flow, el schema_location es obligatorio para estabilidad
         if schema_loc:
-            reader = reader.option("cloudFiles.schemaLocation", schema_loc)
-
-        # Inyectamos el resto de opciones del JSON (si las hubiera)
+             # Si hay varios sources escribiendo a la misma tabla, 
+             # idealmente deberían compartir carpeta de esquema o tener subcarpetas
+             reader = reader.option("cloudFiles.schemaLocation", schema_loc)
+        
+        # Inyección de opciones extra del JSON
         if "options" in source_config:
             for key, value in source_config["options"].items():
                 reader = reader.option(key, value)
@@ -168,19 +186,20 @@ def create_silver_logic_pipeline(config):
 # Iteramos sobre TODOS los flujos.
 # DLT registra todas estas definiciones en el grafo antes de empezar a procesar datos.
 for flow in all_flows:
-    # --- Bronze ---
-    # Mapeamos inputs -> sinks para saber qué tabla crear
-    # Asumimos 1 a 1 para esta simplificación
+    # --- Bronze Logic ---
     if flow.get("bronze_sinks") and flow.get("sources"):
-        # Tomamos el primer sink y el primer source (Simplificación solicitada)
+        # 1. Identificamos la tabla destino (Asumimos 1 sink principal por Dataflow)
         sink_conf = flow["bronze_sinks"][0]
-        source_conf = flow["sources"][0]
+        target_table_name = sink_conf["name"]
         
-        target_name = sink_conf["name"]
+        # 2. CREAMOS EL CONTENEDOR (La tabla vacía)
+        create_bronze_container(target_table_name, sink_conf.get("location"))
         
-        # Llamamos a la fábrica única
-        create_bronze_factory(target_name, source_conf)
+        # 3. CREAMOS LOS APPEND FLOWS (Uno por cada source del JSON)
+        # Esto permite que "person_inputs" (JSON) y "person_csv" (CSV) escriban a la misma tabla
+        for idx, source in enumerate(flow["sources"]):
+            create_bronze_append_flow(target_table_name, source, idx)
 
-    # --- Silver ---
+    # --- Silver Logic ---
     if "silver_logic" in flow:
         create_silver_logic_pipeline(flow["silver_logic"])
