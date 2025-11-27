@@ -9,45 +9,25 @@ from src.transformations_factory import build_transformation_map
 # 0. CARGA DE CONFIGURACIÓN 
 # ==============================================================================
 try:
-    # 1. Obtener parámetros desde la Configuración del Pipeline (Spark Conf)
-    # NOTA: En DLT no usamos sys.argv, usamos la configuración Key-Value del Pipeline
-    config_path = spark.conf.get("metadata_file_path", None)
-    target_flow_name = spark.conf.get("target_dataflow_name", "ALL")
-
-    print(f"DEBUG: Intentando leer configuración desde: {config_path}")
-    print(f"DEBUG: Target Flow solicitado: '{target_flow_name}'")
-
+    # Leemos la configuración global del Pipeline
+    config_path = spark.conf.get("metadata_file_path", None) # type: ignore
+    
     if not config_path:
         raise ValueError("CRITICAL: No se recibió 'metadata_file_path' en la configuración del Pipeline.")
 
-    # 2. Cargar JSON
+    print(f"📄 Cargando Monolito desde: {config_path}")
+    
     with open(config_path, 'r') as f:
         full_config = json.load(f)
 
-    # 3. Lógica de Filtrado
+    # En el monolito, PROCESAMOS TODO. No hay if/else de filtrado.
+    # Spark optimizará la ejecución paralela de estos flujos.
     all_flows = full_config.get("dataflows", [])
-    available_names = [f["name"] for f in all_flows]
     
-    if target_flow_name == "ALL":
-        flows_to_process = all_flows
-        print("INFO: Modo 'ALL' activado. Se ejecutarán todos los flujos.")
-    else:
-        # Filtramos estrictamente
-        flows_to_process = [f for f in all_flows if f["name"] == target_flow_name]
-        
-        # --- FIX CRÍTICO: Si la lista está vacía, debemos fallar AQUÍ ---
-        if not flows_to_process:
-            error_msg = (
-                f"ERROR DE FILTRADO: El dataflow '{target_flow_name}' no existe en el JSON.\n"
-                f"Nombres disponibles en el JSON: {available_names}"
-            )
-            raise ValueError(error_msg)
-            
-    print(f"🚀 Se procesarán {len(flows_to_process)} flujos: {[f['name'] for f in flows_to_process]}")
+    print(f"🚀 Orquestando {len(all_flows)} flujos en un solo DAG.")
 
 except Exception as e:
-    # Capturamos cualquier error de inicialización para que sea visible en el Driver Log
-    raise RuntimeError(f"FALLO EN SETUP DEL PIPELINE: {e}")
+    raise RuntimeError(f"FATAL SETUP: {e}")
 
 # ==============================================================================
 # 1. GENERADOR BRONZE
@@ -193,28 +173,24 @@ def create_silver_logic_pipeline(config):
 # 3. ORQUESTADOR QUE ITERA POR SOURCES Y PATHS
 # ==============================================================================
 
-for flow in flows_to_process:
+# Iteramos sobre TODOS los flujos.
+# DLT registra todas estas definiciones en el grafo antes de empezar a procesar datos.
+for flow in all_flows:
+    # --- Bronze ---
+    input_to_sink = {s["input"]: s for s in flow["bronze_sinks"]}
+    created_tables = set()
     
-    print(f"🔨 Construyendo grafo para: {flow['name']}")
-
-    # --- A. Capa Bronze ---
-    input_to_sink_config = { sink["input"]: sink for sink in flow["bronze_sinks"] }
-    created_bronze_tables = set()
-    
-    for i, source in enumerate(flow["sources"]):
-        input_name = source["name"]
-        
-        if input_name in input_to_sink_config:
-            sink_config = input_to_sink_config[input_name]
-            target_table_name = sink_config["name"]
-            target_location = sink_config.get("location") 
+    for i, src in enumerate(flow["sources"]):
+        if src["name"] in input_to_sink:
+            sink_cfg = input_to_sink[src["name"]]
+            t_name = sink_cfg["name"]
             
-            if target_table_name not in created_bronze_tables:
-                create_bronze_container(target_table_name, target_location)
-                created_bronze_tables.add(target_table_name)
+            if t_name not in created_tables:
+                create_bronze_container(t_name, sink_cfg.get("location"))
+                created_tables.add(t_name)
             
-            create_bronze_append_flow(target_table_name, source, i)
+            create_bronze_append_flow(t_name, src, i)
 
-    # --- B. Capa Silver ---
+    # --- Silver ---
     if "silver_logic" in flow:
         create_silver_logic_pipeline(flow["silver_logic"])
