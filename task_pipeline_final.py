@@ -48,8 +48,8 @@ def create_bronze_container(table_name, location_path=None):
     }
     
     # Si hay storage para la tabla
-    if location_path:
-        table_args["path"] = location_path
+    #if location_path:
+    #    table_args["path"] = location_path
 
     # 2 Llamada directa a DLT 
     # registra la tabla en el grafo de ejecución sin cuerpo de funcion, crea o declara
@@ -117,8 +117,8 @@ def create_silver_logic_pipeline(config):
         "name": quarantine_name,
         "comment": f"Registros rechazados de {silver_target}"
     }
-    if quarantine_location:
-        quarantine_args["path"] = quarantine_location
+    #if quarantine_location:
+      #  quarantine_args["path"] = quarantine_location
 
     @dp.table(**quarantine_args)
     def sales_quarantine():
@@ -155,8 +155,8 @@ def create_silver_logic_pipeline(config):
         "name": silver_target,
         "comment": "Tabla Silver limpia y deduplicada"
     }
-    if silver_location:
-        table_args["path"] = silver_location
+    #if silver_location:
+        #table_args["path"] = silver_location
 
     # Llamada , cargar refencia a la tabla
     dp.create_streaming_table(**table_args)
