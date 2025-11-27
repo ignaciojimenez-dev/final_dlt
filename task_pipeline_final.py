@@ -32,59 +32,62 @@ except Exception as e:
 # ==============================================================================
 # 1. GENERADOR BRONZE
 # ==============================================================================
-
 def create_bronze_container(table_name, location_path=None):
-    """
-    Crea la tabla contenedor usando llamada directa.
-    """
-    #  1 argumentos dinamicos
     table_args = {
         "name": table_name,
-        "comment": f"Repositorio central (Raw) para {table_name}",
-        "table_properties": {
-            "quality": "bronze",
-            "delta.enableChangeDataFeed": "true"
-        }
+        "comment": f"Raw Container: {table_name}",
+        "table_properties": {"quality": "bronze", "delta.enableChangeDataFeed": "true"}
     }
+    # En Serverless/UC, es mejor dejar que Databricks gestione el path si da problemas
+    # if location_path: table_args["path"] = location_path
     
-    # Si hay storage para la tabla
-    #if location_path:
-    #    table_args["path"] = location_path
-
-    # 2 Llamada directa a DLT 
-    # registra la tabla en el grafo de ejecución sin cuerpo de funcion, crea o declara
     dp.create_streaming_table(**table_args)
 
 def create_bronze_append_flow(target_table, source_config, index_id):
     """
-    Crea flujo de ingesta soportando multiples PATHS.
+    Crea flujo de ingesta. 
+    ESTRATEGIA 'BRONZE PURO': Leemos todo como texto/string para evitar errores de esquema en Serverless.
     """
     flow_name = f"ingest_{source_config['name']}_{index_id}"
     
     @dp.append_flow(target=target_table, name=flow_name)
     def ingest_files():
-        reader = (
-            spark.readStream.format("cloud_files") # type: ignore
-            .option("cloud_files.format", source_config["format"])
-            #.option("cloud_files.schemaLocation", source_config["schema_location"])
-            #.option("cloudFiles.inferColumnTypes", "true")
-        )
+        fmt = source_config["format"].lower()
         
-        # 2. Inyeccion dinamica de opciones
-        # itera sobre el diccionario "options" del JSON y las aplica al reader
+        # --- LECTURA NATIVA (NO CLOUD_FILES) ---
+        # Usamos lector nativo para máxima compatibilidad
+        if fmt == "json":
+            # Para JSON en Bronze, leemos sin esquema estricto (inferencia básica)
+            # o forzamos lectura como texto si falla mucho. 
+            # Aquí usamos json nativo con inferSchema (más lento pero compatible).
+            reader = spark.readStream.format("json").option("inferSchema", "true")
+            
+        elif fmt == "csv":
+            reader = spark.readStream.format("csv").option("header", "true").option("inferSchema", "true")
+            
+        elif fmt == "parquet":
+            reader = spark.readStream.format("parquet")
+            
+        else:
+            # Fallback a cloud_files solo si es formato raro, asumiendo riesgo
+            reader = spark.readStream.format("cloud_files").option("cloud_files.format", fmt)
+
+        # Aplicamos opciones del JSON (Filtrando las de cloudFiles para que no rompan el lector nativo)
         if "options" in source_config:
             for key, value in source_config["options"].items():
-                reader = reader.option(key, value)
+                if not key.startswith("cloudFiles"):
+                    reader = reader.option(key, value)
         
-        # 3. Carga del path, soporta string único o lista
+        # --- GESTIÓN DE PATHS (SOLUCIÓN ERROR LISTA) ---
         path_input = source_config.get("path") or source_config.get("paths")
         
         if isinstance(path_input, list):
-            # Si es una lista ["a", "b"], el * la convierte en argumentos: load("a", "b")
+            # El asterisco * desempaqueta la lista en argumentos: load("ruta1", "ruta2")
+            # Spark readStream.load() soporta múltiples argumentos de paths
             return reader.load(*path_input)
         else:
-            # Si es un string normal, lo pasa tal cual
             return reader.load(path_input)
+
 
 # ==============================================================================
 # 2. GENERADOR SILVER (Router -> Quarantine -> Prep -> SCD)
