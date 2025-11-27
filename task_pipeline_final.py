@@ -6,43 +6,48 @@ from src.rules_engine import build_validation_rules
 from src.transformations_factory import build_transformation_map
 
 # ==============================================================================
-# 0. CARGA DE CONFIGURACIÓN (Integración con Task 1)
+# 0. CARGA DE CONFIGURACIÓN 
 # ==============================================================================
 try:
-    # 1. Ruta del JSON (Igual que antes)
-    config_path = spark.conf.get("metadata_file_path", None) # type: ignore
-    if not config_path and len(sys.argv) > 1:
-        config_path = sys.argv[1]
-    
-    # 2. NUEVO: Parámetro de filtrado (Para ejecución concurrente)
-    # Si viene vacío, asumimos "ALL" (ejecutar todo)
-    target_flow_name = spark.conf.get("target_dataflow_name", "ALL") # type: ignore
+    # 1. Obtener parámetros desde la Configuración del Pipeline (Spark Conf)
+    # NOTA: En DLT no usamos sys.argv, usamos la configuración Key-Value del Pipeline
+    config_path = spark.conf.get("metadata_file_path", None)
+    target_flow_name = spark.conf.get("target_dataflow_name", "ALL")
+
+    print(f"DEBUG: Intentando leer configuración desde: {config_path}")
+    print(f"DEBUG: Target Flow solicitado: '{target_flow_name}'")
 
     if not config_path:
-        raise ValueError("Falta metadata_file_path")
+        raise ValueError("CRITICAL: No se recibió 'metadata_file_path' en la configuración del Pipeline.")
 
-    print(f"📄 Configuración: {config_path}")
-    print(f"🎯 Target Dataflow: {target_flow_name}")
-    
+    # 2. Cargar JSON
     with open(config_path, 'r') as f:
         full_config = json.load(f)
 
-    # Lógica de Filtrado
+    # 3. Lógica de Filtrado
     all_flows = full_config.get("dataflows", [])
+    available_names = [f["name"] for f in all_flows]
     
     if target_flow_name == "ALL":
         flows_to_process = all_flows
+        print("INFO: Modo 'ALL' activado. Se ejecutarán todos los flujos.")
     else:
-        # Filtramos solo el flujo que coincida con el nombre recibido
+        # Filtramos estrictamente
         flows_to_process = [f for f in all_flows if f["name"] == target_flow_name]
         
+        # --- FIX CRÍTICO: Si la lista está vacía, debemos fallar AQUÍ ---
         if not flows_to_process:
-            print(f"⚠️ WARNING: No se encontró el dataflow '{target_flow_name}' en el JSON.")
-    
-    print(f"🚀 Se procesarán {len(flows_to_process)} flujos en esta ejecución.")
+            error_msg = (
+                f"ERROR DE FILTRADO: El dataflow '{target_flow_name}' no existe en el JSON.\n"
+                f"Nombres disponibles en el JSON: {available_names}"
+            )
+            raise ValueError(error_msg)
+            
+    print(f"🚀 Se procesarán {len(flows_to_process)} flujos: {[f['name'] for f in flows_to_process]}")
 
 except Exception as e:
-    raise RuntimeError(f"FATAL Setup: {e}")
+    # Capturamos cualquier error de inicialización para que sea visible en el Driver Log
+    raise RuntimeError(f"FALLO EN SETUP DEL PIPELINE: {e}")
 
 # ==============================================================================
 # 1. GENERADOR BRONZE
