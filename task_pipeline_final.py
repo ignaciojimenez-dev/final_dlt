@@ -20,8 +20,6 @@ try:
     with open(config_path, 'r') as f:
         full_config = json.load(f)
 
-    # En el monolito, PROCESAMOS TODO. No hay if/else de filtrado.
-    # Spark optimizará la ejecución paralela de estos flujos.
     all_flows = full_config.get("dataflows", [])
     
     print(f"🚀 Orquestando {len(all_flows)} flujos en un solo DAG.")
@@ -47,9 +45,6 @@ def create_bronze_container(table_name, location_path=None):
         }
     }
     
-    # Si quisieras forzar una ubicación física específica para la tabla delta
-    # if location_path:
-    #    table_args["path"] = location_path
 
     # Registra la tabla vacía en el grafo DLT
     dp.create_streaming_table(**table_args)
@@ -67,32 +62,29 @@ def create_bronze_append_flow(target_table, source_config, index_id):
     file_format = source_config.get("format", "JSON")
     schema_loc = source_config.get("schema_location")
     
-    # --- NUEVO: Leemos el esquema si viene en el JSON ---
+    # Leemos el esquema si viene en el JSON 
     explicit_schema = source_config.get("schema") 
 
     @dp.append_flow(target=target_table, name=flow_name)
     def ingest_files():
-        reader = spark.readStream.format("cloudFiles")
+        reader = spark.readStream.format("cloudFiles") # type: ignore
         
         # 1. Configuración del Formato
         reader = reader.option("cloudFiles.format", file_format)
         
-        # 2. DECISIÓN: ¿Esquema Fijo o Inferencia?
+        # Esquema Fijo o Inferencia
         if explicit_schema:
-            # MAGIA: Si hay esquema, lo imponemos. Adiós inferencia, adiós errores.
             reader = reader.schema(explicit_schema)
         else:
-            # Si no hay esquema, usamos inferencia (riesgo de conflictos)
             reader = reader.option("cloudFiles.inferColumnTypes", "true")
-            # Recomendable usar schemaHints aquí si se usa inferencia
-        
-        # 3. Opciones obligatorias
+
+    
         reader = reader.option("multiLine", "true") 
         
         if schema_loc:
              reader = reader.option("cloudFiles.schemaLocation", schema_loc)
         
-        # 4. Inyección de opciones extra
+        # 4. opciones extra
         if "options" in source_config:
             for key, value in source_config["options"].items():
                 reader = reader.option(key, value)
@@ -107,11 +99,7 @@ def create_silver_logic_pipeline(config):
     
     bronze_source = config["source_bronze"]
     silver_target = config["target_silver_table"]
-    silver_location = config.get("target_location") 
-    
-    quarantine_location = config.get("quarantine_location")
     quarantine_name = f"{silver_target}_quarantine"
-    
     router_name = f"{silver_target}_router_temp"
     prep_view_name = f"{silver_target}_prep_view"
     
@@ -129,22 +117,20 @@ def create_silver_logic_pipeline(config):
         return dp.read_stream(bronze_source).withColumn("is_quarantined", expr(quarantine_sql))
 
     # ======================================
-    # 2. CUARENTENA con sink
+    # 2. CUARENTENA 
     # ======================================
     quarantine_args = {
         "name": quarantine_name,
         "comment": f"Registros rechazados de {silver_target}"
     }
-    #if quarantine_location:
-      #  quarantine_args["path"] = quarantine_location
-
     @dp.table(**quarantine_args)
-    def sales_quarantine():
+    def quarantine_table():
         return dp.read_stream(router_name).filter("is_quarantined = true").withColumn("quarantined_at", current_timestamp())
-        # return dp.read_stream(router_name).filter("is_quarantined = true").select(col("*")) 
+
     
     # ======================================    
-    # 3. VISTA DE PREPARACIoN Maps + withColumns
+    # 3. Vista Preparación 
+    # Transformaciones Maps + withColumns
     # ======================================
     @dp.view(name=prep_view_name)
     def silver_prep_view():
@@ -165,16 +151,14 @@ def create_silver_logic_pipeline(config):
         return df
     # ======================================
     # 4. TABLA FINAL 
-    scd_conf = config["scd_config"]
     # ======================================
     
+    scd_conf = config["scd_config"]
     #  argumentos de la tabla
     table_args = {
         "name": silver_target,
         "comment": "Tabla Silver limpia y deduplicada"
     }
-    #if silver_location:
-        #table_args["path"] = silver_location
 
     # Llamada , cargar refencia a la tabla
     dp.create_streaming_table(**table_args)
@@ -191,23 +175,27 @@ def create_silver_logic_pipeline(config):
 # 3. ORQUESTADOR QUE ITERA POR SOURCES Y PATHS
 # ==============================================================================
 
-# Iteramos sobre TODOS los flujos.
-# DLT registra todas estas definiciones en el grafo antes de empezar a procesar datos.
 for flow in all_flows:
-    # --- Bronze Logic ---
-    if flow.get("bronze_sinks") and flow.get("sources"):
-        # 1. Identificamos la tabla destino (Asumimos 1 sink principal por Dataflow)
-        sink_conf = flow["bronze_sinks"][0]
-        target_table_name = sink_conf["name"]
-        
-        # 2. CREAMOS EL CONTENEDOR (La tabla vacía)
-        create_bronze_container(target_table_name, sink_conf.get("location"))
-        
-        # 3. CREAMOS LOS APPEND FLOWS (Uno por cada source del JSON)
-        # Esto permite que "person_inputs" (JSON) y "person_csv" (CSV) escriban a la misma tabla
-        for idx, source in enumerate(flow["sources"]):
-            create_bronze_append_flow(target_table_name, source, idx)
+    
+    # --- A. Lógica Bronze Dinámica basada en 'name'
+    if "sources" in flow:    
+        sources_by_name = {}
+        for src in flow["sources"]:
+            t_name = src["name"]
+            if t_name not in sources_by_name:
+                sources_by_name[t_name] = []
+            sources_by_name[t_name].append(src)
+            
+        # Generamos los objetos DLT
+        for table_name, src_list in sources_by_name.items():
+            # 1. Crear tabla contenedora (1 vez por nombre)
+            create_bronze_container(table_name)
+            
+            # 2. Crear flujos de ingesta (N veces)
+            for idx, source_conf in enumerate(src_list):
+                create_bronze_append_flow(table_name, source_conf, idx)
 
-    # --- Silver Logic ---
-    if "silver_logic" in flow:
-        create_silver_logic_pipeline(flow["silver_logic"])
+    # --- B. Lógica Silver (Iterar lista de transformaciones) ---
+    if "transformations_silver" in flow:
+        for silver_conf in flow["transformations_silver"]:
+            create_silver_logic_pipeline(silver_conf)

@@ -1,13 +1,8 @@
 {
-  "dataflows": [
+  "dataflows": 
+  [
     {
       "name": "df1_person_flow",
-      "bronze_sinks": [
-        { 
-            "input": "person_inputs", 
-            "name": "bronze_person"
-        }
-      ],
       "sources": [
         {
           "name": "person_inputs", 
@@ -29,11 +24,23 @@
               "delimiter": ";",
               "cloudFiles.schemaHints": "age LONG, ts TIMESTAMP, id STRING, premium_amount DOUBLE"
           }
+        },
+        {
+          "name": "employees_inputs", 
+          "path": "/Volumes/empresa/esquema_ingesta/volumen_data_employees/*", 
+          "format": "JSON",
+          "schema_location": "/Volumes/empresa/esquema_ingesta/volumen_schema_checkpoint/bronze_employees_json",
+          "options": {
+              "cloudFiles.inferColumnTypes": "true",
+              "cloudFiles.schemaEvolutionMode": "failOnNewColumns" 
+          }
         }
       ],
-      "silver_logic": {
+      "transformations_silver": 
+     [
+          {
             "target_silver_table": "silver_person_clean",
-            "source_bronze": "bronze_person",
+            "source_bronze": "person_inputs",
             
             "validations": [
                 {"field": "office", "validations": ["notEmpty"]},
@@ -48,7 +55,27 @@
                 "sequence_by": "ts",
                 "stored_as_scd_type": 1
             }
-      }
+          },
+          {
+            "target_silver_table": "silver_employees_clean",
+            "source_bronze": "employees_inputs",
+            "validations": [
+                {"field": "emp_id", "validations": ["notNull"]},
+                {"field": "email", "validations": ["notEmpty"]}
+            ],
+            "transformations": [
+                {"target_col": "ingestion_ts", "type": "current_timestamp", "params": null},
+                {"target_col": "email_hash", "type": "hash_md5", "params": "email"},
+                {"target_col": "full_name_upper", "type": "sql_expr", "params": "upper(full_name)"}
+            ],
+            
+            "scd_config": {
+                "keys": ["emp_id"],
+                "sequence_by": "updated_at",
+                "stored_as_scd_type": 2
+            }
+          }
+     ]
     }
   ]
 }

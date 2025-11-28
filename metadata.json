@@ -81,8 +81,7 @@
       ],
       "silver_logic": {
             "target_silver_table": "silver_employees_clean",
-            "target_location": "/Volumes/empresa/esquema_ingesta/volumen_storage_tables/silver_employees_ok",
-            "source_bronze": "bronze_employees",
+            "source_bronze": "employees_inputs",
             
             "validations": [
                 {"field": "emp_id", "validations": ["notNull"]},
