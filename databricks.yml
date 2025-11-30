@@ -26,8 +26,9 @@ resources:
   jobs:
     Job_Prueba_Tecnica:
       name: Job_Deploy_Serverless
-      
-      # 1. AQUÍ DEFINIMOS LOS PARÁMETROS GLOBALES (Para que salgan en la UI)
+      email_notifications:
+        on_failure:
+          - ignacio.jimenez@sdggroup.com
       parameters:
         - name: metadata_file_path
           default: /Volumes/dev_dlt/esquema_ingesta/volumen_metadatos/metadata_dev.json
