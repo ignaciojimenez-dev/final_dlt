@@ -13,7 +13,7 @@ spark = SparkSession.builder.getOrCreate()
 
 # Intentar obtener dbutils para entornos interactivos
 try:
-    from pyspark.dbutils import DBUtils
+    from pyspark.dbutils import DBUtils # type: ignore
     dbutils = DBUtils(spark)
 except ImportError:
     dbutils = None
