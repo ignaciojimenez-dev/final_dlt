@@ -32,7 +32,7 @@
           "schema_location": "/Volumes/empresa/esquema_ingesta/volumen_schema_checkpoint/bronze_employees_json",
           "options": {
               "cloudFiles.inferColumnTypes": "true",
-              "cloudFiles.schemaEvolutionMode": "failOnNewColumns" 
+              "cloudFiles.schemaEvolutionMode": "addNewColumns" 
           }
         }
       ],

@@ -1,85 +1,90 @@
 bundle:
-  name: etl_modular_bundle
+  name: etl_modular_bundle_serverless
 
-# Esto sube tus scripts python automáticamente
-include:
-  - "*.py"
-  - "src/*.py"
-  - "metadata_dev.json"
+sync:
+  include:
+    - "*.py"
+    - "src/*.py"
+    - "metadata_dev.json"
 
 resources:
   pipelines:
-    # Definimos la Pipeline DLT
-    mi_pipeline_dlt:
-      name: pipeline_despliegue  
-      target: dev_dlt
+    pipeline_prueba_tecnica_etl:
+      name: pipeline_prueba_tecnica_etl
       libraries:
-        - file: task_pipeline_final.py
+        - file:
+            path: task_pipeline_final.py
       configuration:
+        # En la pipeline se define como configuración fija del despliegue
         metadata_file_path: /Volumes/dev_dlt/esquema_ingesta/volumen_metadatos/metadata_dev.json
       catalog: dev_dlt
+      target: dev_dlt
       serverless: true
-      development: true 
+      development: true
       channel: CURRENT
 
   jobs:
-    mi_job_etl:
-      name: job_despliegue 
+    Job_Prueba_Tecnica:
+      name: Job_Deploy_Serverless
+      
+      # 1. AQUÍ DEFINIMOS LOS PARÁMETROS GLOBALES (Para que salgan en la UI)
       parameters:
         - name: metadata_file_path
           default: /Volumes/dev_dlt/esquema_ingesta/volumen_metadatos/metadata_dev.json
         - name: target_schema
           default: dev_dlt.esquema_ingesta
-      job_clusters:
-        - job_cluster_key: cluster_etl
-          new_cluster:
-            spark_version: 13.3.x-scala2.12
-            node_type_id: Standard_DS3_v2
-            num_workers: 1
 
+      environments:
+        - environment_key: Default
+          spec:
+            environment_version: "3"
+            dependencies:
+              - "dlt"
+            
       tasks:
-        # Tarea 1: Integration Tests 
+        # Tarea 1: Integration Tests
         - task_key: prueba_integracion
-          job_cluster_key: cluster_etl
           spark_python_task:
             python_file: task_integration_tests.py
             parameters:
-              - "${job.parameters.metadata_file_path}"
-              - "${job.parameters.target_schema}"
+              # 2.  PARÁMETROS GLOBALES 
+              - "{{job.parameters.metadata_file_path}}"
+              - "{{job.parameters.target_schema}}"
+          environment_key: Default
 
         # Tarea 2: Validación Metadatos
         - task_key: task_validacion_metadatos
-          job_cluster_key: cluster_etl
           depends_on:
             - task_key: prueba_integracion
           spark_python_task:
             python_file: task_metadata_reader.py
             parameters:
-              - "${job.parameters.metadata_file_path}"
+               - "{{job.parameters.metadata_file_path}}"
+          environment_key: Default
 
         # Tarea 3: Pipeline DLT
         - task_key: task_pipeline
           depends_on:
             - task_key: task_validacion_metadatos
           pipeline_task:
-            # AQUÍ LA MAGIA: Referenciamos la pipeline definida arriba en este mismo archivo
-            pipeline_id: ${resources.pipelines.mi_pipeline_dlt.id}
+            pipeline_id: ${resources.pipelines.pipeline_prueba_tecnica_etl.id}
             full_refresh: false
 
         # Tarea 4: Sinks
-        - task_key: task_sinks
-          job_cluster_key: cluster_etl
+        - task_key: sink_data
           depends_on:
             - task_key: task_pipeline
           spark_python_task:
             python_file: task_sinks.py
             parameters:
-              - "${job.parameters.metadata_file_path}"
-              - "${job.parameters.target_schema}"
+              - "{{job.parameters.metadata_file_path}}"
+              - "{{job.parameters.target_schema}}"
+          environment_key: Default
 
 targets:
   dev:
     mode: development
     default: true
     workspace:
-      host: https://<TU-URL-DATABRICKS>.azuredatabricks.net 
+      host: https://dbc-652ce356-b363.cloud.databricks.com
+      root_path: /Users/${workspace.current_user.userName}/.bundle/${bundle.name}/dev
