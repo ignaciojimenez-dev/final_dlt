@@ -1,0 +1,85 @@
+bundle:
+  name: etl_modular_bundle
+
+# Esto sube tus scripts python automáticamente
+include:
+  - "*.py"
+  - "src/*.py"
+  - "metadata_dev.json"
+
+resources:
+  pipelines:
+    # Definimos la Pipeline DLT
+    mi_pipeline_dlt:
+      name: pipeline_despliegue  
+      target: dev_dlt
+      libraries:
+        - file: task_pipeline_final.py
+      configuration:
+        metadata_file_path: /Volumes/dev_dlt/esquema_ingesta/volumen_metadatos/metadata_dev.json
+      catalog: dev_dlt
+      serverless: true
+      development: true 
+      channel: CURRENT
+
+  jobs:
+    mi_job_etl:
+      name: job_despliegue 
+      parameters:
+        - name: metadata_file_path
+          default: /Volumes/dev_dlt/esquema_ingesta/volumen_metadatos/metadata_dev.json
+        - name: target_schema
+          default: dev_dlt.esquema_ingesta
+      job_clusters:
+        - job_cluster_key: cluster_etl
+          new_cluster:
+            spark_version: 13.3.x-scala2.12
+            node_type_id: Standard_DS3_v2
+            num_workers: 1
+
+      tasks:
+        # Tarea 1: Integration Tests 
+        - task_key: prueba_integracion
+          job_cluster_key: cluster_etl
+          spark_python_task:
+            python_file: task_integration_tests.py
+            parameters:
+              - "${job.parameters.metadata_file_path}"
+              - "${job.parameters.target_schema}"
+
+        # Tarea 2: Validación Metadatos
+        - task_key: task_validacion_metadatos
+          job_cluster_key: cluster_etl
+          depends_on:
+            - task_key: prueba_integracion
+          spark_python_task:
+            python_file: task_metadata_reader.py
+            parameters:
+              - "${job.parameters.metadata_file_path}"
+
+        # Tarea 3: Pipeline DLT
+        - task_key: task_pipeline
+          depends_on:
+            - task_key: task_validacion_metadatos
+          pipeline_task:
+            # AQUÍ LA MAGIA: Referenciamos la pipeline definida arriba en este mismo archivo
+            pipeline_id: ${resources.pipelines.mi_pipeline_dlt.id}
+            full_refresh: false
+
+        # Tarea 4: Sinks
+        - task_key: task_sinks
+          job_cluster_key: cluster_etl
+          depends_on:
+            - task_key: task_pipeline
+          spark_python_task:
+            python_file: task_sinks.py
+            parameters:
+              - "${job.parameters.metadata_file_path}"
+              - "${job.parameters.target_schema}"
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://<TU-URL-DATABRICKS>.azuredatabricks.net 
