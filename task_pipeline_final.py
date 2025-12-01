@@ -1,5 +1,5 @@
 import pyspark.pipelines as dp # type: ignore
-from pyspark.sql.functions import *
+from pyspark.sql.functions import * # type: ignore
 import json
 # codigo propio
 from src.rules_engine import build_validation_rules
@@ -114,7 +114,7 @@ def create_silver_logic_pipeline(config):
     )
     @dp.expect_all(rules_dict)
     def quality_router_temp():
-        return dp.read_stream(bronze_source).withColumn("is_quarantined", expr(quarantine_sql))
+        return dp.read_stream(bronze_source).withColumn("is_quarantined", expr(quarantine_sql)) # type: ignore
 
     # ======================================
     # 2. CUARENTENA 
@@ -125,7 +125,7 @@ def create_silver_logic_pipeline(config):
     }
     @dp.table(**quarantine_args)
     def quarantine_table():
-        return dp.read_stream(router_name).filter("is_quarantined = true").withColumn("quarantined_at", current_timestamp())
+        return dp.read_stream(router_name).filter("is_quarantined = true").withColumn("quarantined_at", current_timestamp()) # type: ignore
 
     
     # ======================================    
@@ -167,7 +167,7 @@ def create_silver_logic_pipeline(config):
         target=silver_target,
         source=prep_view_name,
         keys=scd_conf["keys"],
-        sequence_by=col(scd_conf["sequence_by"]),
+        sequence_by=col(scd_conf["sequence_by"]), # type: ignore
         stored_as_scd_type=scd_conf["stored_as_scd_type"]
     )
 
@@ -187,13 +187,13 @@ def create_gold_logic_pipeline(config):
     transforms_list = config.get("transformations", [])
     agg_config = config.get("aggregation", None)
 
-    @dlt.table(
+    @dp.table(
         name=table_name,
         comment=f"Gold Table aggregated from {source_silver}"
     )
     def gold_logic():
         # 1. Lectura Batch (necesaria para Group By global)
-        df = dlt.read(source_silver)
+        df = dp.read(source_silver)
 
         # 2. Transformaciones fila a fila (Masking, cálculos)
         transforms_map = build_transformation_map(transforms_list)

@@ -90,7 +90,7 @@
           ],
           
           "aggregation": {
-            "group_by": ["office"],
+            "group_by": ["department"],
             "metrics": [
               { 
                 "col": "emp_id", 
