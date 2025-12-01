@@ -3,7 +3,7 @@ from pyspark.sql.functions import *
 import json
 # codigo propio
 from src.rules_engine import build_validation_rules
-from src.transformations_factory import build_transformation_map
+from src.transformations_factory import build_transformation_map , apply_aggregation
 
 # ==============================================================================
 # 0. CARGA DE CONFIGURACIÓN 
@@ -172,30 +172,67 @@ def create_silver_logic_pipeline(config):
     )
 
 # ==============================================================================
-# 3. ORQUESTADOR QUE ITERA POR SOURCES Y PATHS
+# 3. GOLD
+# ==============================================================================
+
+def create_gold_logic_pipeline(config):
+    """
+    Crea tablas Gold (Agregadas) usando DLT.
+    Usa el dispatcher modular para transformaciones y agregaciones.
+    """
+    table_name = config["target_gold_table"]
+    source_silver = config["source_silver"]
+    
+    # Extraer configs
+    transforms_list = config.get("transformations", [])
+    agg_config = config.get("aggregation", None)
+
+    @dlt.table(
+        name=table_name,
+        comment=f"Gold Table aggregated from {source_silver}"
+    )
+    def gold_logic():
+        # 1. Lectura Batch (necesaria para Group By global)
+        df = dlt.read(source_silver)
+
+        # 2. Transformaciones fila a fila (Masking, cálculos)
+        transforms_map = build_transformation_map(transforms_list)
+        if transforms_map:
+            df = df.withColumns(transforms_map)
+
+        # 3. Agregaciones (Modular)
+        # Se delega al factory que usa el AGGREGATION_DISPATCHER
+        if agg_config:
+            df = apply_aggregation(df, agg_config)
+            
+        return df
+# ==============================================================================
+# 4. ORQUESTADOR QUE ITERA POR SOURCES Y PATHS
 # ==============================================================================
 
 for flow in all_flows:
+    print(f"🔄 Procesando flujo: {flow.get('name', 'Unnamed')}")
     
-    # --- A. Lógica Bronze Dinámica basada en 'name'
+    # --- A. Bronze ---
     if "sources" in flow:    
         sources_by_name = {}
         for src in flow["sources"]:
             t_name = src["name"]
-            if t_name not in sources_by_name:
-                sources_by_name[t_name] = []
+            if t_name not in sources_by_name: sources_by_name[t_name] = []
             sources_by_name[t_name].append(src)
             
-        # Generamos los objetos DLT
         for table_name, src_list in sources_by_name.items():
-            # 1. Crear tabla contenedora (1 vez por nombre)
             create_bronze_container(table_name)
-            
-            # 2. Crear flujos de ingesta (N veces)
             for idx, source_conf in enumerate(src_list):
                 create_bronze_append_flow(table_name, source_conf, idx)
 
-    # --- B. Lógica Silver (Iterar lista de transformaciones) ---
+    # --- B. Silver ---
     if "transformations_silver" in flow:
         for silver_conf in flow["transformations_silver"]:
             create_silver_logic_pipeline(silver_conf)
+
+    # --- C. Gold (NUEVO) ---
+    if "transformations_gold" in flow:
+        print(f"  -> Creando lógica Gold para {flow.get('name')}")
+        for gold_conf in flow["transformations_gold"]:
+            create_gold_logic_pipeline(gold_conf)

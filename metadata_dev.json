@@ -75,7 +75,33 @@
                 "stored_as_scd_type": 2
             }
           }
-     ],"sinks": [
+     ],
+      "transformations_gold": [
+        {
+          "target_gold_table": "gold_employees_by_office",
+          "source_silver": "silver_employees_clean",
+          
+          "transformations": [
+            { 
+              "target_col": "email_encrypted", 
+              "type": "aes_encrypt", 
+              "params": "email" 
+            }
+          ],
+          
+          "aggregation": {
+            "group_by": ["office"],
+            "metrics": [
+              { 
+                "col": "emp_id", 
+                "type": "count", 
+                "alias": "total_employees" 
+              }
+            ]
+          }
+        }
+      ],
+     "sinks": [
   {
     "input": "silver_person_clean",
     "name": "raw_ok",  
