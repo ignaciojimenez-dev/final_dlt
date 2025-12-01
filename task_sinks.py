@@ -35,8 +35,8 @@ def run_sinks(metadata_path, source_catalog_schema):
     config = load_config(metadata_path)
     dataflows = config.get("dataflows", [])
     
-    log.info(f"🚀 Iniciando procesamiento de Sinks para {len(dataflows)} flujos.")
-    log.info(f"🔎 Esquema origen (DLT): {source_catalog_schema}")
+    log.info(f" Iniciando procesamiento de Sinks para {len(dataflows)} flujos.")
+    log.info(f" Esquema origen (DLT): {source_catalog_schema}")
 
     success_count = 0
     fail_count = 0
@@ -85,7 +85,7 @@ def run_sinks(metadata_path, source_catalog_schema):
                 log.error(f"   XXXX Error en sink '{sink.get('input')}': {e}")
                 fail_count += 1
 
-    log.info(f"🏁 Finalizado. OK: {success_count} | Error: {fail_count}")
+    log.info(f" Finalizado. OK: {success_count} | Error: {fail_count}")
     if fail_count > 0:
         raise RuntimeError("Fallos detectados en Sinks.")
 
@@ -121,7 +121,7 @@ if __name__ == "__main__":
             if s_widget: schema_arg = s_widget
             
             if path_arg and schema_arg:
-                log.info("✅ Parámetros detectados vía Widgets")
+                log.info("OKKK Parámetros detectados vía Widgets")
         except Exception as e:
             log.warning(f"Error accediendo a widgets: {e}")
 

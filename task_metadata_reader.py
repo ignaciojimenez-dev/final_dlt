@@ -2,7 +2,7 @@ import json
 import logging
 import sys
 from typing import Optional, Dict, Any
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession # type: ignore
 
 try:
     from pyspark.dbutils import DBUtils # type: ignore
@@ -28,11 +28,11 @@ def load_config(path: str) -> Optional[dict]:
 def validate_metadata_schema(config: Dict[str, Any]) -> bool:
     """Valida que la estructura del JSON sea correcta para el Monolito."""
     if not config or "dataflows" not in config:
-        log.error("❌ Falta la clave raíz 'dataflows'")
+        log.error("XXXX Falta la clave raíz 'dataflows'")
         return False
     
     if not isinstance(config["dataflows"], list) or len(config["dataflows"]) == 0:
-        log.error("❌ 'dataflows' debe ser una lista no vacía")
+        log.error("XXXX 'dataflows' debe ser una lista no vacía")
         return False
 
     # Validaciones rápidas de estructura interna
@@ -40,16 +40,16 @@ def validate_metadata_schema(config: Dict[str, Any]) -> bool:
         flow_name = flow.get("name", f"Index {idx}")
         
         if "sources" not in flow or not flow["sources"]:
-            log.error(f"❌ '{flow_name}' no tiene 'sources'")
+            log.error(f"XXXX '{flow_name}' no tiene 'sources'")
             return False
             
         if "silver_logic" in flow:
             sl = flow["silver_logic"]
             if "target_silver_table" not in sl:
-                log.error(f"❌ Silver Logic en '{flow_name}' falta target")
+                log.error(f"XXXX Silver Logic en '{flow_name}' falta target")
                 return False
 
-    log.info(f"✅ Validación exitosa. Se encontraron {len(config['dataflows'])} flujos listos para procesar.")
+    log.info(f"OKKK Validación exitosa. Se encontraron {len(config['dataflows'])} flujos listos para procesar.")
     return True
 
 def main():
@@ -69,10 +69,10 @@ def main():
     if is_valid:
         # En el Monolito, Task 1 solo actúa de "Semáforo Verde".
         # No necesitamos pasar listas complejas, solo confirmar que Task 2 puede leer el fichero.
-        log.info("Semáforo en VERDE. Iniciando orquestación monolítica.")
+        log.info("PERFECT. Iniciando orquestación monolítica.")
         dbutils.jobs.taskValues.set(key="validation_status", value="OK")
     else:
-        log.error("Semáforo en ROJO. Deteniendo Job.")
+        log.error("MAL. Deteniendo Job.")
         sys.exit(1)
 
 if __name__ == "__main__":

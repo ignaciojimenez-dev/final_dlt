@@ -15,14 +15,14 @@ try:
     if not config_path:
         raise ValueError("CRITICAL: No se recibió 'metadata_file_path' en la configuración del Pipeline.")
 
-    print(f"📄 Cargando  desde: {config_path}")
+    print(f" Cargando  desde: {config_path}")
     
     with open(config_path, 'r') as f:
         full_config = json.load(f)
 
     all_flows = full_config.get("dataflows", [])
     
-    print(f"🚀 Orquestando {len(all_flows)} flujos en un solo DAG.")
+    print(f" Orquestando {len(all_flows)} flujos en un solo DAG.")
 
 except Exception as e:
     raise RuntimeError(f"FATAL SETUP: {e}")
@@ -211,7 +211,7 @@ def create_gold_logic_pipeline(config):
 # ==============================================================================
 
 for flow in all_flows:
-    print(f"🔄 Procesando flujo: {flow.get('name', 'Unnamed')}")
+    print(f" Procesando flujo: {flow.get('name', 'Unnamed')}")
     
     # --- A. Bronze ---
     if "sources" in flow:    
