@@ -9,13 +9,13 @@ from src.rules_engine import get_sql_constraint, build_validation_rules
 from src.transformations_factory import build_transformation_map
 from task_metadata_reader import validate_metadata_schema
 
-# --- FIXTURES (Configuración previa) ---
+# --- Configuración previa ---
 @pytest.fixture(scope="session")
 def spark_local():
     """Sesión de Spark local mínima para validar objetos Column si fuera necesario."""
     return SparkSession.builder.master("local[1]").appName("UnitTest").getOrCreate()
 
-# --- TEST RULES ENGINE (Lógica Pura) ---
+# --- TEST RULES ENGINE  ---
 def test_get_sql_constraint_ok():
     assert get_sql_constraint("age", "positive") == "age > 0"
     assert "IS NOT NULL" in get_sql_constraint("id", "notNull")
@@ -29,22 +29,20 @@ def test_build_validation_rules():
     rules, quarantine_sql = build_validation_rules(config)
     
     assert "valid_email_notNull" in rules
-    # Verificamos que la lógica de cuarentena niegue las reglas
     assert "NOT(" in quarantine_sql and "AND" in quarantine_sql
 
-# --- TEST METADATA READER (Estructura JSON) ---
+# --- TEST METADATA READER Estructura JSON ---
 def test_validate_metadata_structure():
     good_config = {
         "dataflows": [{"name": "flow1", "sources": ["s1"], "silver_logic": {"target_silver_table": "t1"}}]
     }
-    bad_config = {"dataflows": []} # Lista vacía
+    bad_config = {"dataflows": []} 
     
     assert validate_metadata_schema(good_config) is True
     assert validate_metadata_schema(bad_config) is False
 
 # --- TEST TRANSFORMATIONS FACTORY ---
 def test_transformation_dispatcher(spark_local):
-    # Probamos que el factory devuelva algo (un objeto Column) y no falle
     cfg = [
         {"target_col": "ts", "type": "current_timestamp", "params": None},
         {"target_col": "clean_name", "type": "sql_expr", "params": "upper(name)"}
@@ -53,7 +51,6 @@ def test_transformation_dispatcher(spark_local):
     
     assert "ts" in result_map
     assert "clean_name" in result_map
-    # Opcional: Verificar que son del tipo Column (pyspark.sql.column.Column)
     assert str(result_map["clean_name"]).strip() != ""
 
 def test_transformation_invalid():
