@@ -15,7 +15,7 @@ try:
     if not config_path:
         raise ValueError("CRITICAL: No se recibió 'metadata_file_path' en la configuración del Pipeline.")
 
-    print(f"📄 Cargando Monolito desde: {config_path}")
+    print(f"📄 Cargando  desde: {config_path}")
     
     with open(config_path, 'r') as f:
         full_config = json.load(f)
@@ -51,7 +51,7 @@ def create_bronze_container(table_name, location_path=None):
 
 def create_bronze_append_flow(target_table, source_config, index_id):
     """
-    Crea flujo de ingesta. Soporta esquema explícito (DDL) para evitar conflictos de tipos.
+    Crea flujo de ingesta. Soporta esquema explícito para evitar conflictos de tipos.
     """
     flow_name = f"ingest_{target_table}_{index_id}"
     
@@ -177,7 +177,7 @@ def create_silver_logic_pipeline(config):
 
 def create_gold_logic_pipeline(config):
     """
-    Crea tablas Gold (Agregadas) usando DLT.
+    Crea tablas Gold  usando DLT.
     Usa el dispatcher modular para transformaciones y agregaciones.
     """
     table_name = config["target_gold_table"]
@@ -231,7 +231,7 @@ for flow in all_flows:
         for silver_conf in flow["transformations_silver"]:
             create_silver_logic_pipeline(silver_conf)
 
-    # --- C. Gold (NUEVO) ---
+    # --- C. Gold  ---
     if "transformations_gold" in flow:
         print(f"  -> Creando lógica Gold para {flow.get('name')}")
         for gold_conf in flow["transformations_gold"]:

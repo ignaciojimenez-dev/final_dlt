@@ -28,7 +28,7 @@ TRANSFORMATION_DISPATCHER = {
     "hash_sha256": lambda params: sha2(col(params), 256), # type: ignore
     "hash_md5": lambda params: md5(col(params)), # type: ignore
 
-    # --- NUEVO: Masking Reversible (AES) ---
+    # ---  Masking Reversible (AES) ---
     # params: nombre de la columna a encriptar/desencriptar
     "aes_encrypt": lambda params: aes_encrypt(col(params), lit(SECRET_KEY_AES)), # type: ignore
     "aes_decrypt": lambda params: aes_decrypt(col(params), lit(SECRET_KEY_AES)).cast("string") # type: ignore
@@ -67,7 +67,7 @@ def build_transformation_map(transformations_list):
     return transform_map
 
 # ==============================================================================
-# 2. DISPATCHER DE AGREGACIONES (Group By) - ¡NUEVO!
+# 2. DISPATCHER DE AGREGACIONES (Group By) + MAP DISPACHER
 # ==============================================================================
 
 # Mapeamos el string del JSON a una lambda que recibe el nombre de la columna
@@ -78,7 +78,6 @@ AGGREGATION_DISPATCHER = {
     "max":   lambda c: max(col(c)), # type: ignore
     "first": lambda c: first(col(c)), # type: ignore
     "last":  lambda c: last(col(c)), # type: ignore
-    # Count tiene lógica especial para "*"
     "count": lambda c: count(lit(1)) if c == "*" else count(col(c)) # type: ignore
 }
 
@@ -112,7 +111,7 @@ def apply_aggregation(df, agg_config):
             # Ejecutamos la lambda y añadimos el alias
             agg_exprs.append(agg_func(col_name).alias(alias))
         else:
-            print(f"⚠️ Warning: Tipo de agregación '{agg_type}' no soportado. Se ignora.")
+            print(f"!!!! Warning: Tipo de agregación '{agg_type}' no soportado. Se ignora.")
 
     # Ejecutamos la agregación final
     return df.groupBy(*group_cols).agg(*agg_exprs)
