@@ -48,7 +48,7 @@ def run_sinks(metadata_path, source_catalog_schema):
         if not sinks:
             continue
 
-        log.info(f"▶ Procesando sinks para flujo: {flow_name}")
+        log.info(f" Procesando sinks para flujo: {flow_name}")
 
         for sink in sinks:
             try:
@@ -96,8 +96,8 @@ if __name__ == "__main__":
     path_arg = None
     schema_arg = None
 
-    # 1. MODO JOB (sys.argv)
-    # Cuando pasas ["param1", "param2"] en la Task, llegan como sys.argv[1] y sys.argv[2]
+    # 1. MODO JOB sys.argv
+    # s ["param1", "param2"] en la Task, llegan como sys.argv[1] y sys.argv[2]
     log.info(f"Argumentos recibidos (sys.argv): {sys.argv}")
     
     if len(sys.argv) > 2:
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     # 3. VALIDACIÓN FINAL
     if not path_arg or not schema_arg:
         log.error("XXXX ERROR FATAL: Faltan parámetros.")
-        log.error("Causa probable: No se pasaron argumentos en la Task o los Widgets están vacíos.")
+        log.error(" No se pasaron argumentos en la Task o los Widgets están vacíos.")
         log.error(f"Valor actual - Path: '{path_arg}' | Schema: '{schema_arg}'")
         sys.exit(1)
 

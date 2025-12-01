@@ -2,7 +2,7 @@
 import sys
 import json
 import logging
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession # type: ignore
 
 # Setup simple
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - [PRE-FLIGHT] - %(message)s')
