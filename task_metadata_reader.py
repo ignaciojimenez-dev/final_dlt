@@ -35,7 +35,7 @@ def validate_metadata_schema(config: Dict[str, Any]) -> bool:
         log.error("XXXX 'dataflows' debe ser una lista no vacía")
         return False
 
-    # Validaciones rápidas de estructura interna
+    # Validaciones de estructura interna
     for idx, flow in enumerate(config["dataflows"]):
         flow_name = flow.get("name", f"Index {idx}")
         
@@ -67,8 +67,6 @@ def main():
     is_valid = validate_metadata_schema(config)
 
     if is_valid:
-        # En el Monolito, Task 1 solo actúa de "Semáforo Verde".
-        # No necesitamos pasar listas complejas, solo confirmar que Task 2 puede leer el fichero.
         log.info("PERFECT. Iniciando orquestación monolítica.")
         dbutils.jobs.taskValues.set(key="validation_status", value="OK")
     else:
