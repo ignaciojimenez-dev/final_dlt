@@ -4,7 +4,7 @@ from pyspark.sql.functions import * # type: ignore
 # MAPA DE TRANSFORMACIONES
 # diccionario que mapea el "type" del JSON a una lambda.
 # params: es el valor que viene del JSON ,puede ser string, dict o null
-
+SECRET_KEY_AES = "SDG_BOOTCAMP_2025_KEY_32_BYTES"
 TRANSFORMATION_DISPATCHER = {
     #  Expresiones SQL , posible logica de negocio 
     # JOSN: { "type": "sql_expr", "params": "CASE WHEN ..." }
