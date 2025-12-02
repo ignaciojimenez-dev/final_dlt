@@ -117,15 +117,8 @@
       ],
       "transformations_gold": [
         {
-          "target_gold_table": "gold_employees_by_office",
+          "target_gold_table": "gold_employees_by_department",
           "source_silver": "silver_employees_clean",
-          "transformations": [
-            {
-              "target_col": "email_encrypted",
-              "type": "aes_encrypt",
-              "params": "email"
-            }
-          ],
           "aggregation": {
             "group_by": [
               "department"
@@ -138,6 +131,17 @@
               }
             ]
           }
+        },
+        {
+          "target_gold_table": "gold_employees_aes",
+          "source_silver": "silver_employees_clean",
+          "transformations": [
+            {
+              "target_col": "email_encrypted",
+              "type": "aes_encrypt",
+              "params": "email"
+            }
+          ]
         }
       ],
       "sinks": [
