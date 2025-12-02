@@ -134,9 +134,9 @@ def create_silver_logic_pipeline(config):
         ]
         
         # Creamos la columna array y limpiamos los nulos
-        return df.withColumn( # type: ignore
+        return df.withColumn(
             "arrayCodeByField", 
-            array_remove(array(*error_expressions), None) # type: ignore
+            filter(array(*error_expressions), lambda x: x.isNotNull()) # type: ignore
         ).withColumn("quarantined_at", current_timestamp()) # type: ignore
 
     
