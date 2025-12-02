@@ -26,7 +26,9 @@ def load_config(path: str) -> Optional[dict]:
         return None
 
 def validate_metadata_schema(config: Dict[str, Any]) -> bool:
-    """Valida que la estructura del JSON sea correcta para el Monolito."""
+    """Valida que la estructura del JSON sea correcta para el Monolito (Bronze, Silver y Gold)."""
+    
+    # 1. Validaciones Raíz
     if not config or "dataflows" not in config:
         log.error("XXXX Falta la clave raíz 'dataflows'")
         return False
@@ -35,21 +37,37 @@ def validate_metadata_schema(config: Dict[str, Any]) -> bool:
         log.error("XXXX 'dataflows' debe ser una lista no vacía")
         return False
 
-    # Validaciones de estructura interna
+    # 2. Validaciones por Flujo
     for idx, flow in enumerate(config["dataflows"]):
         flow_name = flow.get("name", f"Index {idx}")
         
+        # --- A. VALIDAR SOURCES ---
         if "sources" not in flow or not flow["sources"]:
             log.error(f"XXXX '{flow_name}' no tiene 'sources'")
             return False
-            
-        if "silver_logic" in flow:
-            sl = flow["silver_logic"]
-            if "target_silver_table" not in sl:
-                log.error(f"XXXX Silver Logic en '{flow_name}' falta target")
-                return False
+        
+        # --- B. VALIDAR SILVER Lista de transformaciones ---
 
-    log.info(f"OKKK Validación exitosa. Se encontraron {len(config['dataflows'])} flujos listos para procesar.")
+        if "transformations_silver" in flow:
+            for i, sl in enumerate(flow["transformations_silver"]):
+                if "target_silver_table" not in sl:
+                    log.error(f"XXXX Silver en '{flow_name}' (item {i}): falta 'target_silver_table'")
+                    return False
+                if "source_bronze" not in sl:
+                    log.error(f"XXXX Silver en '{flow_name}' (item {i}): falta 'source_bronze'")
+                    return False
+
+        # --- C. VALIDAR GOLD  ---
+        if "transformations_gold" in flow:
+            for i, gl in enumerate(flow["transformations_gold"]):
+                if "target_gold_table" not in gl:
+                    log.error(f"XXXX Gold en '{flow_name}' (item {i}): falta 'target_gold_table'")
+                    return False
+                if "source_silver" not in gl:
+                    log.error(f"XXXX Gold en '{flow_name}' (item {i}): falta 'source_silver'")
+                    return False
+
+    log.info(f"OKKK Validación exitosa. Se encontraron {len(config['dataflows'])} flujos revisados (Bronze, Silver, Gold).")
     return True
 
 def main():
@@ -70,7 +88,7 @@ def main():
         log.info("PERFECT. Iniciando orquestación monolítica.")
         dbutils.jobs.taskValues.set(key="validation_status", value="OK")
     else:
-        log.error("MAL. Deteniendo Job.")
+        log.error("MAL. El JSON tiene errores estructurales. Deteniendo Job.")
         sys.exit(1)
 
 if __name__ == "__main__":
