@@ -125,7 +125,20 @@ def create_silver_logic_pipeline(config):
     }
     @dp.table(**quarantine_args)
     def quarantine_table():
-        return dp.read_stream(router_name).filter("is_quarantined = true").withColumn("quarantined_at", current_timestamp()) # type: ignore
+        df = dp.read_stream(router_name).filter("is_quarantined = true")
+    
+    # --- AGREGADO: Lógica para array de errores ---
+    # Creamos una lista de condiciones: Si la regla falla (NOT), ponemos su nombre.
+    error_expressions = [
+        when(expr(f"NOT ({sql_rule})"), lit(rule_name)).otherwise(lit(None)) # type: ignore
+        for rule_name, sql_rule in rules_dict.items()
+    ]
+    
+    # Creamos la columna array y limpiamos los nulos
+    return df.withColumn(
+        "arrayCodeByField", 
+        array_remove(array(*error_expressions), None) # type: ignore
+    ).withColumn("quarantined_at", current_timestamp()) # type: ignore
 
     
     # ======================================    
