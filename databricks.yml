@@ -18,7 +18,7 @@ resources:
         # En la pipeline se define como configuración fija del despliegue
         metadata_file_path: /Volumes/dev_dlt/esquema_ingesta/volumen_metadatos/metadata_dev.json
       catalog: dev_dlt
-      target: dev_dlt
+      target: esquema_ingesta
       serverless: true
       development: true
       channel: CURRENT

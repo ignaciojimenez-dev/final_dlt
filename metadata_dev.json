@@ -25,7 +25,7 @@
         },
         {
           "name": "employees_inputs",
-          "path": "/Volumes/empresa/esquema_ingesta/volumen_data_employees/*",
+          "path": "/Volumes/dev_dlt/esquema_ingesta/volumen_data_employees/*",
           "format": "JSON",
           "schema_location": "/Volumes/empresa/esquema_ingesta/volumen_schema_checkpoint/bronze_employees_json",
           "options": {
