@@ -129,8 +129,8 @@ def create_silver_logic_pipeline(config):
     
         # Creamos una lista de condiciones: Si la regla falla (NOT), ponemos su nombre.
         error_expressions = [
-            when(expr(f"NOT ({sql_rule})"), lit(rule_name)).otherwise(lit(None)) # type: ignore
-            for rule_name, sql_rule in rules_dict.items()
+        when(expr(sql_rule), lit(None)).otherwise(lit(rule_name))  # type: ignore
+        for rule_name, sql_rule in rules_dict.items()
         ]
         
         # Creamos la columna array y limpiamos los nulos
