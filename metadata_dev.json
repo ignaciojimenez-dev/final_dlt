@@ -177,7 +177,7 @@
       "security_policies": [
         {
           "table_name": "gold_employees_aes",
-          "comment": "Tabla con datos sensibles encriptados y PII en claro",
+          "comment": "Tabla con datos sensibles encriptados",
           "masking_functions": [
             {
               "target_col": "email",

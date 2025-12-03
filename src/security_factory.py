@@ -29,20 +29,20 @@ def build_security_setup_statements(security_config_list, catalog_schema="main.s
         # Nombre corto para generar nombres de funciones limpias
         raw_table_name = policy["table_name"]
         
-        # FIX: Nombre cualificado para ejecutar el ALTER TABLE en el lugar correcto
+        # Nombre  para ejecutar el ALTER TABLE en el lugar correcto
         # Si catalog_schema viene vacío o nulo, usamos solo el nombre de tabla
         if catalog_schema:
             full_table_name = f"{catalog_schema}.{raw_table_name}"
         else:
             full_table_name = raw_table_name
             
-        # --- A. ROW FILTERS ---
+        # ---  ROW FILTERS ---
         for rf in policy.get("row_filters", []):
             p_type = rf["type"]
             params = rf["params"]
             col_name_phys = params.pop("col_dept") 
             
-            # Usamos raw_table_name para el nombre de la función (sin puntos extra)
+            # Usamos raw_table_name para el nombre de la función 
             udf_name = f"{catalog_schema}.{get_udf_name(p_type, raw_table_name)}"
             
             if p_type not in SECURITY_LOGIC_DISPATCHER:
@@ -55,10 +55,10 @@ def build_security_setup_statements(security_config_list, catalog_schema="main.s
                 RETURN {sql_body}
             """)
             
-            # Usamos full_table_name para aplicar la regla
+            #  full_table_name para aplicar la regla
             apply_sqls.append(f"ALTER TABLE {full_table_name} SET ROW FILTER {udf_name} ON ({col_name_phys})")
 
-        # --- B. COLUMN MASKS ---
+        # ---  COLUMN MASKS ---
         for mask in policy.get("masking_functions", []):
             p_type = mask["type"]
             target_col = mask["target_col"]

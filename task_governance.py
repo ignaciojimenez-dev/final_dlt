@@ -5,7 +5,7 @@ from pyspark.sql import SparkSession # type: ignore
 from pyspark.sql.utils import AnalysisException # type: ignore
 
 # ==============================================================================
-# FIX: GESTIÓN DE PATH PARA IMPORTAR MÓDULOS (SRC)
+#  IMPORTAR MÓDULOS SRC
 # ==============================================================================
 try:
     sys.path.append(os.path.abspath(os.path.dirname(__file__)))
@@ -33,11 +33,10 @@ schema_arg = None
 if len(sys.argv) > 2:
     metadata_path_arg = sys.argv[1]
     schema_arg = sys.argv[2]
-    print(f"✅ Parámetros detectados vía Job Arguments.")
+    print(f" OKKK !! Parámetros detectados .")
 
 if (not metadata_path_arg or not schema_arg) and dbutils:
     try:
-        print("⚠️ No hay argumentos de Job. Buscando Widgets...")
         dbutils.widgets.text("metadata_file_path", "", "Ruta JSON Metadatos")
         dbutils.widgets.text("security_schema", "main.default", "Esquema Funciones Seguridad")
         
@@ -50,7 +49,7 @@ if (not metadata_path_arg or not schema_arg) and dbutils:
         print(f"Advertencia leyendo widgets: {e}")
 
 if not metadata_path_arg or not schema_arg:
-    print("❌ ERROR FATAL: Faltan parámetros.")
+    print("XXX ERROR FATAL: Faltan parámetros.")
     sys.exit(1)
 
 METADATA_PATH = metadata_path_arg
@@ -73,32 +72,32 @@ def run_sql_smartly(sql_command):
         msg = str(e)
         # Detectamos el error específico: "expects a table but ... is a view"
         if "expects a table" in msg and "is a view" in msg:
-            print(f"   ⚠️ Objeto detectado como VISTA. Reintentando como MATERIALIZED VIEW...")
+            print(f"   WARNING !!! Objeto detectado como VISTA. Reintentando como MATERIALIZED VIEW...")
             
             # Intento 1: DLT suele crear Materialized Views
             new_sql = sql_command.replace("ALTER TABLE", "ALTER MATERIALIZED VIEW")
             try:
                 spark.sql(new_sql)
-                print("   ✅ Éxito usando ALTER MATERIALIZED VIEW")
+                print("   OKKK !! Éxito usando ALTER MATERIALIZED VIEW")
                 return
             except Exception as e2:
-                print(f"   ⚠️ Falló como MV. Intentando como VIEW genérica... ({e2})")
+                print(f"   WARNING !!! Falló como MV. Intentando como VIEW genérica... ({e2})")
                 
                 # Intento 2: Vista normal
                 new_sql_v = sql_command.replace("ALTER TABLE", "ALTER VIEW")
                 try:
                     spark.sql(new_sql_v)
-                    print("   ✅ Éxito usando ALTER VIEW")
+                    print("  OKKK !! Éxito usando ALTER VIEW")
                     return
                 except Exception as e3:
-                    print(f"   ❌ Fallaron todos los reintentos.")
+                    print(f"   XXXX Fallaron todos los reintentos.")
                     raise e3
         else:
             # Si es otro error (sintaxis, permisos), fallamos normal
             raise e
 
 def main():
-    print(f"🔒 Iniciando Governance Enforcer...")
+    print(f" Iniciando Governance Enforcer...")
 
     try:
         with open(METADATA_PATH, 'r') as f:
@@ -117,10 +116,10 @@ def main():
             all_security_policies.extend(flow_policies)
     
     if not all_security_policies:
-        print("ℹ️ Sin políticas. Fin.")
+        print("  Sin políticas. Fin.")
         return
 
-    print(f"📋 Procesando {len(all_security_policies)} tablas...")
+    print(f" Procesando {len(all_security_policies)} tablas...")
 
     # Generar SQL
     setup_sqls, apply_sqls = build_security_setup_statements(
@@ -137,13 +136,12 @@ def main():
     for sql in apply_sqls:
         print(f"Aplicando: {sql}")
         try:
-            # Usamos la función inteligente aquí
             run_sql_smartly(sql)
         except Exception as e:
-            print(f"❌ ERROR CRÍTICO aplicando seguridad: {e}")
+            print(f"XXX ERROR CRÍTICO aplicando seguridad: {e}")
             raise e
             
-    print("\n✅ Governance Enforcement completado.")
+    print("\n OKKK !! Governance Enforcement completado.")
 
 if __name__ == "__main__":
     main()
