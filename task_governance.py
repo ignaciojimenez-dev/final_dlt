@@ -3,7 +3,10 @@ import sys
 import os
 from pyspark.sql import SparkSession # type: ignore
 
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+try:
+    sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+except NameError:
+    sys.path.append(os.getcwd())
 
 from src.security_factory import build_security_setup_statements
 
