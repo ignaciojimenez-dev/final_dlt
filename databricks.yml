@@ -71,10 +71,21 @@ resources:
             pipeline_id: ${resources.pipelines.pipeline_prueba_tecnica_etl.id}
             full_refresh: false
 
-        # Tarea 4: Sinks
-        - task_key: sink_data
+        # Tarea 4: Validación Metadatos
+        - task_key: task_governance
           depends_on:
             - task_key: task_pipeline
+          spark_python_task:
+            python_file: task_governance.py
+            parameters:
+               - "{{job.parameters.metadata_file_path}}"
+               - "{{job.parameters.target_schema}}"
+          environment_key: Default
+        
+        # Tarea 5: Sinks
+        - task_key: sink_data
+          depends_on:
+            - task_key: task_governance
           spark_python_task:
             python_file: task_sinks.py
             parameters:

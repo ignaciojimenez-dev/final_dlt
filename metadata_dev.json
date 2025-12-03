@@ -173,6 +173,31 @@
           "format": "JSON",
           "saveMode": "OVERWRITE"
         }
+      ],
+      "security_policies": [
+        {
+          "table_name": "gold_employees_aes",
+          "comment": "Tabla con datos sensibles encriptados y PII en claro",
+          "masking_functions": [
+            {
+              "target_col": "email",
+              "type": "mask_email_dynamic",
+              "params": {
+                "allowed_group": "group_admins_data"
+              }
+            }
+          ],
+          "row_filters": [
+            {
+              "type": "filter_dept_dynamic",
+              "params": {
+                "col_dept": "department",
+                "allowed_group": "group_admins_data",
+                "restrict_to_dept": "HR"
+              }
+            }
+          ]
+        }
       ]
     }
   ]
