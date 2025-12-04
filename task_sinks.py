@@ -109,14 +109,14 @@ if __name__ == "__main__":
     # Solo si no se encontraron en sys.argv y dbutils  disponible
     if (not path_arg or not schema_arg) and dbutils:
         try:
-            log.info("WARNING!!! No hay argumentos de Job. Intentando leer Widgets...")
-            dbutils.widgets.text("metadata_file_path", "", "Ruta JSON Metadatos")
-            dbutils.widgets.text("target_schema", "", "Esquema Target DLT")
+            log.info("WARNING!!! No hay argumentos de Job, lectura desde widget")
+            dbutils.widgets.text("metadata_file_path", "/Volumes/dev_dlt/esquema_ingesta/volumen_metadatos/metadata_dev.json", "Ruta JSON Metadatos")
+            dbutils.widgets.text("target_schema", "dev_dlt.esquema_ingesta", "Esquema Target DLT")
             
             p_widget = dbutils.widgets.get("metadata_file_path")
             s_widget = dbutils.widgets.get("target_schema")
             
-            # Solo usamos los widgets si tienen contenido
+
             if p_widget: path_arg = p_widget
             if s_widget: schema_arg = s_widget
             

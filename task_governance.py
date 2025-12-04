@@ -37,8 +37,8 @@ if len(sys.argv) > 2:
 
 if (not metadata_path_arg or not schema_arg) and dbutils:
     try:
-        dbutils.widgets.text("metadata_file_path", "", "Ruta JSON Metadatos")
-        dbutils.widgets.text("security_schema", "main.default", "Esquema Funciones Seguridad")
+        dbutils.widgets.text("metadata_file_path", "/Volumes/dev_dlt/esquema_ingesta/volumen_metadatos/metadata_dev.json", "Ruta JSON Metadatos")
+        dbutils.widgets.text("security_schema", "dev_dlt.esquema_ingesta", "Esquema Funciones ")
         
         p_widget = dbutils.widgets.get("metadata_file_path")
         s_widget = dbutils.widgets.get("security_schema")
@@ -61,40 +61,51 @@ print(f"🔧 Configuración: {METADATA_PATH} | Schema: {SECURITY_CATALOG_SCHEMA}
 # 2. LOGICA PRINCIPAL
 # ==============================================================================
 
-def run_sql_smartly(sql_command):
+def run_sql(sql_command):
     """
-    Intenta ejecutar SQL. Si falla porque el objeto es una VIEW/MV en lugar de TABLE,
-    reescribe el comando y reintenta.
+    Ejecuta SQL con reintentos  para objetos que no son tablas estándar (Views/MVs).
+    Itera sobre una lista de estrategias de reemplazo.
     """
+    
+    # 1. Definimos las estrategias de fallback en orden de prioridad
+    fallback_strategies = [
+        ("ALTER MATERIALIZED VIEW", "Materialized View"),
+        ("ALTER VIEW", "Standard View"),
+        ("ALTER STREAMING TABLE","ALTER STREAMING TABLE")
+    ]
+
+    # 2. Intento inicial Tabla estándar.
     try:
         spark.sql(sql_command)
+        return 
     except AnalysisException as e:
         msg = str(e)
-        # Detectamos el error específico: "expects a table but ... is a view"
-        if "expects a table" in msg and "is a view" in msg:
-            print(f"   WARNING !!! Objeto detectado como VISTA. Reintentando como MATERIALIZED VIEW...")
-            
-            # Intento 1: DLT suele crear Materialized Views
-            new_sql = sql_command.replace("ALTER TABLE", "ALTER MATERIALIZED VIEW")
-            try:
-                spark.sql(new_sql)
-                print("   OKKK !! Éxito usando ALTER MATERIALIZED VIEW")
-                return
-            except Exception as e2:
-                print(f"   WARNING !!! Falló como MV. Intentando como VIEW genérica... ({e2})")
-                
-                # Intento 2: Vista normal
-                new_sql_v = sql_command.replace("ALTER TABLE", "ALTER VIEW")
-                try:
-                    spark.sql(new_sql_v)
-                    print("  OKKK !! Éxito usando ALTER VIEW")
-                    return
-                except Exception as e3:
-                    print(f"   XXXX Fallaron todos los reintentos.")
-                    raise e3
-        else:
-            # Si es otro error (sintaxis, permisos), fallamos normal
+        if not ("expects a table" in msg and "is a view" in msg):
             raise e
+        
+        print(f" El objeto es una VISTA. Iniciando secuencia de reintentos...")
+
+    # 3. Bucle de intentos
+    last_error = None
+    
+    for replacement, strategy_name in fallback_strategies:
+        try:
+            # Reemplazamos "ALTER TABLE" por lo nuevo
+
+            new_sql = sql_command.replace("ALTER TABLE", replacement, 1)
+            
+            spark.sql(new_sql)
+            print(f"  Éxito aplicando estrategia: {strategy_name}")
+            return # Éxito, terminamos
+            
+        except Exception as e:
+            print(f"  - Falló estrategia {strategy_name}")
+            last_error = e
+
+    # sino lee ninguna tabla
+    print("  Fallaron todas las estrategias de aplicación.")
+    if last_error:
+        raise last_error
 
 def main():
     print(f" Iniciando Governance Enforcer...")
@@ -136,7 +147,7 @@ def main():
     for sql in apply_sqls:
         print(f"Aplicando: {sql}")
         try:
-            run_sql_smartly(sql)
+            run_sql(sql)
         except Exception as e:
             print(f"XXX ERROR CRÍTICO aplicando seguridad: {e}")
             raise e
